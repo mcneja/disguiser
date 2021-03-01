@@ -6,5 +6,6 @@ authors = ["Richard <richard.anaya@gmail.com>"]
 [lib]
 crate-type = ["cdylib"]
 
-[dependencies]
-lazy_static = "1.0.0"
+[profile.release]
+lto = true
+opt-level = 's'

@@ -1,46 +1,34 @@
+<html lang="en">
 <style>
 body {
-  color: white;
+  color: black;
   font-family: arial;
   flex-direction: column;
-  background-color: black;
+  background-color: #f0f0f0;
   display: flex;
   align-items: center;
   justify-content: center;
 }
+canvas {
+  background: #a6a6a6;
+  box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
+}
 </style>
-<body>
-  <div>Use arrow keys to move  ↑↓→	←</div>
-</body>
-<script>
-var width = 80;
-var height = 60;
-var squareSize = 10;
-var c = document.createElement('canvas');
-c.width = width*squareSize;
-c.height = height*squareSize;
-document.body.append(c);
-
-var ctx = c.getContext('2d');
-ctx.textAlign = "center";
-ctx.font = '12px arial';
-
-fetch('roguelike.wasm')
-.then(response => response.arrayBuffer())
-.then(bytes => WebAssembly.instantiate(bytes, {
-  env: {
-   put_character: function(x,y,char,r,g,b) {
-     ctx.fillStyle = `rgb(${r},${g},${b})`;
-     ctx.clearRect(x*squareSize, y*squareSize, squareSize,squareSize);
-     ctx.fillText(String.fromCharCode(char), x*squareSize+squareSize/2, y*squareSize+squareSize/2);
-   }
- }
-}))
-.then(results => {
-    results.instance.exports.start(width,height);
-    document.body.addEventListener("keydown",function(e){
-      console.log("Key Pressed:"+e.keyCode);
-      results.instance.exports.key_down(e.keyCode);
-    })
-});
+<head profile="http://www.w3.org/2005/10/profile">
+<link rel="icon" type="image/ico" href="favicon.ico"/>
+<meta charset="utf-8"/>
+<title>2021 7DRL</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gl-matrix/2.8.1/gl-matrix-min.js"
+            integrity="sha512-zhHQR0/H5SEBL3Wn6yYSaTTZej12z0hVZKOv3TwCUXT1z5qeqGcXJLLrbERYRScEDDpYIJhPC1fk31gqR783iQ=="
+            crossorigin="anonymous" defer>
 </script>
+<!-- <script src="webgl.js" defer></script> -->
+</head>
+<body>
+<h1>2021 7DRL</h1>
+<p>Use arrow keys (&uarr; &darr; &larr; &rarr;) to move</p>
+<canvas id="canvas" width="880" height="760"></canvas>
+</body>
+<!-- <script src="roguelike.js"></script> -->
+<script src="webgl.js"></script>
+</html>
