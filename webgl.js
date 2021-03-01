@@ -55,29 +55,9 @@ function main(image) {
 		return;
 	}
 
-	glResources = initGlResources(gl, image);
-
 	// Set up various WebGL state that won't change for the duration of the program:
 
-	gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-	gl.enable(gl.BLEND);
-	gl.clearColor(0.65, 0.65, 0.65, 1.0);
-
-	gl.bindBuffer(gl.ARRAY_BUFFER, glResources.buffers.position);
-	gl.vertexAttribPointer(glResources.attribLocations.vertexPosition, 4, gl.FLOAT, false, 0, 0);
-	gl.enableVertexAttribArray(glResources.attribLocations.vertexPosition);
-
-	gl.bindBuffer(gl.ARRAY_BUFFER, glResources.buffers.color);
-	gl.vertexAttribPointer(glResources.attribLocations.vertexColor, 4, gl.FLOAT, false, 0, 0);
-	gl.enableVertexAttribArray(glResources.attribLocations.vertexColor);
-
-	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, glResources.buffers.indices);
-
-	gl.useProgram(glResources.program);
-
-	gl.activeTexture(gl.TEXTURE0);
-	gl.bindTexture(gl.TEXTURE_2D, glResources.texture);
-	gl.uniform1i(glResources.uniformLocations.uSampler, 0);
+	const glResources = initGlResources(gl, image);
 
 	// Set up the keyboard state update
 
@@ -141,7 +121,7 @@ function initGlResources(gl, image) {
 
 	const texture = createTextureFromImage(gl, image);
 
-	return {
+	const glResources = {
 		program: program,
 		attribLocations: {
 			vertexPosition: gl.getAttribLocation(program, 'aVertexPosition'),
@@ -154,6 +134,28 @@ function initGlResources(gl, image) {
 		buffers: buffers,
 		texture: texture,
 	};
+
+	gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+	gl.enable(gl.BLEND);
+	gl.clearColor(0.65, 0.65, 0.65, 1.0);
+
+	gl.bindBuffer(gl.ARRAY_BUFFER, glResources.buffers.position);
+	gl.vertexAttribPointer(glResources.attribLocations.vertexPosition, 4, gl.FLOAT, false, 0, 0);
+	gl.enableVertexAttribArray(glResources.attribLocations.vertexPosition);
+
+	gl.bindBuffer(gl.ARRAY_BUFFER, glResources.buffers.color);
+	gl.vertexAttribPointer(glResources.attribLocations.vertexColor, 4, gl.FLOAT, false, 0, 0);
+	gl.enableVertexAttribArray(glResources.attribLocations.vertexColor);
+
+	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, glResources.buffers.indices);
+
+	gl.useProgram(glResources.program);
+
+	gl.activeTexture(gl.TEXTURE0);
+	gl.bindTexture(gl.TEXTURE_2D, glResources.texture);
+	gl.uniform1i(glResources.uniformLocations.uSampler, 0);
+
+	return glResources;
 }
 
 function initBuffers(gl) {
@@ -231,13 +233,13 @@ function drawScene(gl, glResources) {
 
 	for (let x = 0; x < worldSizeX; ++x) {
 		for (let y = 0; y < worldSizeY; ++y) {
-			addTile(gl, 132, x, y, 0, 0.68, 0, 1);
+			addTile(gl, glResources, 132, x, y, 0, 0.68, 0, 1);
 		}
 	}
-	worldMap.forEach((tileIndex, [x, y]) => addTile(gl, tileIndex, x, y, 0, 0.68, 0, 1));
-	addTile(gl, 208, Math.floor(player.x * 16) / 16, Math.floor(player.y * 16) / 16, 0.66, 0.66, 0.66, 1);
+	worldMap.forEach((tileIndex, [x, y]) => addTile(gl, glResources, tileIndex, x, y, 0, 0.68, 0, 1));
+	addTile(gl, glResources, 208, Math.floor(player.x * 16) / 16, Math.floor(player.y * 16) / 16, 0.66, 0.66, 0.66, 1);
 
-	renderQuads(gl);
+	renderQuads(gl, glResources);
 }
 
 function initShaderProgram(gl, vsSource, fsSource) {
@@ -290,7 +292,7 @@ function createTextureFromImage(gl, image) {
 	return texture;
 }
 
-function renderQuads(gl) {
+function renderQuads(gl, glResources) {
 	if (numQuads > 0) {
 		gl.bindBuffer(gl.ARRAY_BUFFER, glResources.buffers.position);
 		gl.bufferData(gl.ARRAY_BUFFER, vertexPositions, gl.DYNAMIC_DRAW);
@@ -303,7 +305,7 @@ function renderQuads(gl) {
 	numQuads = 0;
 }
 
-function addTile(gl, i, x, y, r, g, b, a) {
+function addTile(gl, glResources, i, x, y, r, g, b, a) {
 	const tileX = i % 16;
 	const tileY = 15 - Math.floor(i / 16);
 
@@ -312,12 +314,12 @@ function addTile(gl, i, x, y, r, g, b, a) {
 	const s1 = (tileX + 1) / 16;
 	const t1 = tileY / 16;
 
-	addQuad(gl, x, y, x+1, y+1, s0, t0, s1, t1, r, g, b, a);
+	addQuad(gl, glResources, x, y, x+1, y+1, s0, t0, s1, t1, r, g, b, a);
 }
 
-function addQuad(gl, x0, y0, x1, y1, s0, t0, s1, t1, r, g, b, a) {
+function addQuad(gl, glResources, x0, y0, x1, y1, s0, t0, s1, t1, r, g, b, a) {
 	if (numQuads >= maxQuads) {
-		renderQuads(gl);
+		renderQuads(gl, glResources);
 	}
 
 	// Append four vertices to the position/texcoord and color arrays
