@@ -7,9 +7,6 @@ var glResources = {};
 const worldSizeX = 55;
 const worldSizeY = 44;
 
-var player = { x: Math.floor(worldSizeX / 2), y: Math.floor(worldSizeY / 2) };
-var worldMap = createWorldMap();
-
 // Pressed-key state
 
 const keyPressed = new Set();
@@ -18,9 +15,9 @@ const keyPressed = new Set();
 // Position: four vertices per quad, four components per position (x, y, s, t)
 // Colors: four colors per quad, four components (RGBA) per color
 
-const maxQuads = 2048;
+const maxQuads = 4096;
 const vertexPositions = new Float32Array(maxQuads * 16);
-const vertexColors = new Float32Array(maxQuads * 16);
+const vertexColors = new Uint32Array(maxQuads * 4);
 let numQuads = 0;
 
 // Functions
@@ -80,43 +77,16 @@ function runWasm(gl, glResources, wasm) {
 
 	let importObject = {
 		env: {
-			put_tile: function(i, x, y, r, g, b, a) {
-				addTile(gl, glResources, i, x, y, r, g, b, a);
+			put_tile: function(i, x, y, color) {
+				addTile(gl, glResources, i, x, y, color);
 			}
 		},
 	};
 
 	let timePrev = performance.now();
 
-	function localKeyDown(key) {
-		let timeNext = performance.now();
-		let dt = timeNext - timePrev;
-		timePrev = timeNext;
-		console.log("Time between keys: " + dt + "ms");
-		switch (key) {
-			case 37:
-				--player.x;
-				drawScene(gl, glResources);
-				break;
-			case 38:
-				++player.y;
-				drawScene(gl, glResources);
-				break;
-			case 39:
-				++player.x;
-				drawScene(gl, glResources);
-				break;
-			case 40:
-				--player.y;
-				drawScene(gl, glResources);
-				break;
-		}
-	}
-
 	WebAssembly.instantiateStreaming(wasm, importObject).then(results => {
 		const wasmExports = results.instance.exports;
-
-//		drawScene(gl, glResources);
 
 		document.body.addEventListener('keydown', e => {
 			const key = keymap[e.code] || null;
@@ -124,7 +94,6 @@ function runWasm(gl, glResources, wasm) {
 			if (key != null) {
 				preDrawScene(gl, glResources);
 				wasmExports.key_down(key);
-//				localKeyDown(key);
 				postDrawScene(gl, glResources);
 			}
 		});
@@ -192,7 +161,7 @@ function initGlResources(gl, image) {
 	gl.enableVertexAttribArray(glResources.attribLocations.vertexPosition);
 
 	gl.bindBuffer(gl.ARRAY_BUFFER, glResources.buffers.color);
-	gl.vertexAttribPointer(glResources.attribLocations.vertexColor, 4, gl.FLOAT, false, 0, 0);
+	gl.vertexAttribPointer(glResources.attribLocations.vertexColor, 4, gl.UNSIGNED_BYTE, true, 0, 0);
 	gl.enableVertexAttribArray(glResources.attribLocations.vertexColor);
 
 	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, glResources.buffers.indices);
@@ -236,35 +205,6 @@ function createElementBuffer(gl) {
 	return indexBuffer;
 }
 
-function update(deltaTime) {
-	const controlX =
-		((keyPressed.has('ArrowLeft') || keyPressed.has('Numpad4') || keyPressed.has('Numpad7') || keyPressed.has('Numpad1')) ? -1 : 0) +
-		((keyPressed.has('ArrowRight') || keyPressed.has('Numpad6') || keyPressed.has('Numpad3') || keyPressed.has('Numpad9')) ? 1 : 0);
-	const controlY =
-		((keyPressed.has('ArrowUp') || keyPressed.has('Numpad8') || keyPressed.has('Numpad7') || keyPressed.has('Numpad9')) ? 1 : 0) +
-		((keyPressed.has('ArrowDown') || keyPressed.has('Numpad2') || keyPressed.has('Numpad1') || keyPressed.has('Numpad3')) ? -1 : 0);
-
-	const speed = 8.0;
-
-	player.x += controlX * speed * deltaTime;
-	player.y += controlY * speed * deltaTime;
-}
-
-function randomIntInRange(range) {
-	return Math.floor(Math.random() * range);
-}
-
-function createWorldMap() {
-	const worldMap = new Map();
-	for (let i = 0; i < 100; ++i) {
-		const x = randomIntInRange(worldSizeX);
-		const y = randomIntInRange(worldSizeY);
-		const key = [x, y];
-		worldMap.set(key, 144);
-	}
-	return worldMap;
-}
-
 function preDrawScene(gl, glResources) {
 	const screenX = gl.canvas.clientWidth;
 	const screenY = gl.canvas.clientHeight;
@@ -281,31 +221,6 @@ function preDrawScene(gl, glResources) {
 }
 
 function postDrawScene(gl, glResources) {
-	renderQuads(gl, glResources);
-}
-
-function drawScene(gl, glResources) {
-	const screenX = gl.canvas.clientWidth;
-	const screenY = gl.canvas.clientHeight;
-	const sx = 32 / screenX;
-	const sy = 32 / screenY;
-	const tx = -16 * worldSizeX / screenX;
-	const ty = -16 * worldSizeY / screenY;
-
-	const projectionMatrix = mat4.fromValues(sx, 0, 0, 0, 0, sy, 0, 0, 0, 0, 1, 0, tx, ty, 0, 1);
-
-	gl.clear(gl.COLOR_BUFFER_BIT);
-
-	gl.uniformMatrix4fv(glResources.uniformLocations.projectionMatrix, false, projectionMatrix);
-
-	for (let x = 0; x < worldSizeX; ++x) {
-		for (let y = 0; y < worldSizeY; ++y) {
-			addTile(gl, glResources, 132, x, y, 0, 0.68, 0, 1);
-		}
-	}
-	worldMap.forEach((tileIndex, [x, y]) => addTile(gl, glResources, tileIndex, x, y, 0, 0.68, 0, 1));
-	addTile(gl, glResources, 208, Math.floor(player.x * 16) / 16, Math.floor(player.y * 16) / 16, 0.66, 0.66, 0.66, 1);
-
 	renderQuads(gl, glResources);
 }
 
@@ -373,7 +288,7 @@ function renderQuads(gl, glResources) {
 	numQuads = 0;
 }
 
-function addTile(gl, glResources, i, x, y, r, g, b, a) {
+function addTile(gl, glResources, i, x, y, color) {
 	const tileX = i % 16;
 	const tileY = 15 - Math.floor(i / 16);
 
@@ -382,10 +297,10 @@ function addTile(gl, glResources, i, x, y, r, g, b, a) {
 	const s1 = (tileX + 1) / 16;
 	const t1 = tileY / 16;
 
-	addQuad(gl, glResources, x, y, x+1, y+1, s0, t0, s1, t1, r, g, b, a);
+	addQuad(gl, glResources, x, y, x+1, y+1, s0, t0, s1, t1, color);
 }
 
-function addQuad(gl, glResources, x0, y0, x1, y1, s0, t0, s1, t1, r, g, b, a) {
+function addQuad(gl, glResources, x0, y0, x1, y1, s0, t0, s1, t1, color) {
 	if (numQuads >= maxQuads) {
 		renderQuads(gl, glResources);
 	}
@@ -414,11 +329,8 @@ function addQuad(gl, glResources, x0, y0, x1, y1, s0, t0, s1, t1, r, g, b, a) {
 	vertexPositions[i+14] = s1;
 	vertexPositions[i+15] = t1;
 
-	for (let j = 0; j < 16; j += 4) {
-		vertexColors[i+j+0] = r;
-		vertexColors[i+j+1] = g;
-		vertexColors[i+j+2] = b;
-		vertexColors[i+j+3] = a;
+	for (let j = numQuads * 4; j < (numQuads + 1) * 4; ++j) {
+		vertexColors[j] = color;
 	}
 
 	++numQuads;
