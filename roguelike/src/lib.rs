@@ -1,6 +1,6 @@
 //this represents our external js function
 extern {
-    fn put_character(x: i32, y: i32, char: i32, color: i32);
+    fn put_tile(i: i32, x: i32, y: i32, r: f32, g: f32, b: f32, a: f32);
 }
 
 const KEY_LEFT: i32 = 37;
@@ -21,26 +21,28 @@ static mut WORLD_GLOBAL: World = World {
 };
 
 //a simple safe wrapper around calling the JS function
-fn draw_character(x: i32, y: i32, char: u8, r: u8, g: u8, b: u8) -> () {
+fn draw_tile(i: i32, x: i32, y: i32, r: f32, g: f32, b: f32, a: f32) -> () {
     unsafe {
-        put_character(x, y, char as i32, make_rgb(r, g, b));
+        put_tile(i, x, y, r, g, b, a);
     }
 }
 
+/*
 fn make_rgb(r: u8, g: u8, b: u8) -> i32 {
 	((r as i32) << 16) + ((g as i32) << 8) + (b as i32)
 }
+*/
 
 fn draw_world(world: &World) {
     //draw grass
     for y in 0..world.view_height {
         for x in 0..world.view_width {
-          draw_character(x, y, 46, 0, 64, 0);
+          draw_tile(132, x, y, 0.0, 0.68, 0.0, 1.0);
         }
     }
 
     //draw player
-    draw_character(world.player_position.0, world.player_position.1, 64, 255, 255, 255);
+    draw_tile(208, world.player_position.0, world.player_position.1, 0.66, 0.66, 0.66, 1.0);
 }
 
 fn get_world() -> &'static mut World {
@@ -62,8 +64,8 @@ pub fn key_down(c: i32) -> () {
 	let modifier = match c {
 		KEY_LEFT => (-1,0),
 		KEY_RIGHT => (1,0),
-		KEY_DOWN => (0,1),
-		KEY_UP => (0,-1),
+		KEY_DOWN => (0,-1),
+		KEY_UP => (0,1),
 		_ => (0,0)
 	};
 	let world = get_world();

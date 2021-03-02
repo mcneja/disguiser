@@ -7,7 +7,7 @@ var glResources = {};
 const worldSizeX = 55;
 const worldSizeY = 44;
 
-var player = { x: worldSizeX / 2, y: worldSizeY / 2 };
+var player = { x: Math.floor(worldSizeX / 2), y: Math.floor(worldSizeY / 2) };
 var worldMap = createWorldMap();
 
 // Pressed-key state
@@ -33,17 +33,16 @@ const loadImage = src =>
 		img.src = src;
 	});
 
-function loadWasm(src) {
-	return new Promise((resolve, reject) => {
-		fetch(src);
+function loadResourcesThenStart() {
+	Promise.all([
+		loadImage('tiles.png'),
+		fetch('roguelike.wasm'),
+	]).then(([image, wasm]) => {
+		main(image, wasm);
 	});
 }
 
-function loadResourcesThenStart() {
-	loadImage('tiles.png').then(image => main(image));
-}
-
-function main(image) {
+function main(image, wasm) {
 
 	// Initialize all WebGL resources
 
@@ -59,32 +58,81 @@ function main(image) {
 
 	const glResources = initGlResources(gl, image);
 
-	// Set up the keyboard state update
+	// Instantiate and run the WebAssembly module.
 
-	document.body.addEventListener("keydown", e => {
-		// console.log("Key Pressed:" + e.key + " (" + e.code + ")");
-		keyPressed.add(e.code);
-	});
-	document.body.addEventListener("keyup", e => {
-		// console.log("Key Released:" + e.key + " (" + e.code + ")");
-		keyPressed.delete(e.code);
-	});
+	runWasm(gl, glResources, wasm);
+}
 
-	// Main loop
+// Convert Javascript's key names into numeric codes for use in the Rust program
 
-	let then = 0;
+const keymap = {
+	ArrowLeft: 37,
+	Numpad4: 37,
+	ArrowUp: 38,
+	Numpad8: 38,
+	ArrowRight: 39,
+	Numpad6: 39,
+	ArrowDown: 40,
+	Numpad2: 40,
+};
 
-	function render(now) {
-		const deltaTime = Math.min(1/60, (now - then) * 0.001); // convert to seconds
-		then = now;
+function runWasm(gl, glResources, wasm) {
 
-		update(deltaTime);
-		drawScene(gl, glResources);
+	let importObject = {
+		env: {
+			put_tile: function(i, x, y, r, g, b, a) {
+				addTile(gl, glResources, i, x, y, r, g, b, a);
+			}
+		},
+	};
 
-		requestAnimationFrame(render);
+	let timePrev = performance.now();
+
+	function localKeyDown(key) {
+		let timeNext = performance.now();
+		let dt = timeNext - timePrev;
+		timePrev = timeNext;
+		console.log("Time between keys: " + dt + "ms");
+		switch (key) {
+			case 37:
+				--player.x;
+				drawScene(gl, glResources);
+				break;
+			case 38:
+				++player.y;
+				drawScene(gl, glResources);
+				break;
+			case 39:
+				++player.x;
+				drawScene(gl, glResources);
+				break;
+			case 40:
+				--player.y;
+				drawScene(gl, glResources);
+				break;
+		}
 	}
 
-	requestAnimationFrame(render);
+	WebAssembly.instantiateStreaming(wasm, importObject).then(results => {
+		const wasmExports = results.instance.exports;
+
+//		drawScene(gl, glResources);
+
+		document.body.addEventListener('keydown', e => {
+			const key = keymap[e.code] || null;
+			// console.log("Key Pressed:" + e.key + " (" + e.code + ") -> " + key);
+			if (key != null) {
+				preDrawScene(gl, glResources);
+				wasmExports.key_down(key);
+//				localKeyDown(key);
+				postDrawScene(gl, glResources);
+			}
+		});
+
+		preDrawScene(gl, glResources);
+		wasmExports.start(worldSizeX, worldSizeY);
+		postDrawScene(gl, glResources);
+	});
 }
 
 function initGlResources(gl, image) {
@@ -217,6 +265,25 @@ function createWorldMap() {
 	return worldMap;
 }
 
+function preDrawScene(gl, glResources) {
+	const screenX = gl.canvas.clientWidth;
+	const screenY = gl.canvas.clientHeight;
+	const sx = 32 / screenX;
+	const sy = 32 / screenY;
+	const tx = -16 * worldSizeX / screenX;
+	const ty = -16 * worldSizeY / screenY;
+
+	const projectionMatrix = mat4.fromValues(sx, 0, 0, 0, 0, sy, 0, 0, 0, 0, 1, 0, tx, ty, 0, 1);
+
+	gl.clear(gl.COLOR_BUFFER_BIT);
+
+	gl.uniformMatrix4fv(glResources.uniformLocations.projectionMatrix, false, projectionMatrix);
+}
+
+function postDrawScene(gl, glResources) {
+	renderQuads(gl, glResources);
+}
+
 function drawScene(gl, glResources) {
 	const screenX = gl.canvas.clientWidth;
 	const screenY = gl.canvas.clientHeight;
@@ -294,6 +361,7 @@ function createTextureFromImage(gl, image) {
 
 function renderQuads(gl, glResources) {
 	if (numQuads > 0) {
+		// console.log("Render " + numQuads + " quads");
 		gl.bindBuffer(gl.ARRAY_BUFFER, glResources.buffers.position);
 		gl.bufferData(gl.ARRAY_BUFFER, vertexPositions, gl.DYNAMIC_DRAW);
 
