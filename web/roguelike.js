@@ -36,6 +36,8 @@ function main(image, wasm) {
 
 	projectionMatrix.fill(0);
 	projectionMatrix[10] = 1;
+	projectionMatrix[12] = -1;
+	projectionMatrix[13] = -1;
 	projectionMatrix[15] = 1;
 
 	// Initialize all WebGL resources
@@ -262,15 +264,9 @@ function createElementBuffer(gl) {
 function drawScreen(gl, glResources, drawFunc) {
 	const screenX = gl.canvas.clientWidth;
 	const screenY = gl.canvas.clientHeight;
-	const sx = 2 / screenX;
-	const sy = 2 / screenY;
-	const tx = -1;
-	const ty = -1;
 
-	projectionMatrix[0] = sx;
-	projectionMatrix[5] = sy;
-	projectionMatrix[12] = tx;
-	projectionMatrix[13] = ty;
+	projectionMatrix[0] = 2 / screenX;
+	projectionMatrix[5] = 2 / screenY;
 
 	gl.clear(gl.COLOR_BUFFER_BIT);
 
