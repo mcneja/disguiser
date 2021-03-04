@@ -233,21 +233,12 @@ function drawScreen(gl, glResources, drawFunc) {
 	const tx = -16 * worldSizeX / screenX;
 	const ty = -16 * worldSizeY / screenY;
 
+	projectionMatrix.fill(0);
 	projectionMatrix[0] = sx;
-	projectionMatrix[1] = 0;
-	projectionMatrix[2] = 0;
-	projectionMatrix[3] = 0;
-	projectionMatrix[4] = 0;
 	projectionMatrix[5] = sy;
-	projectionMatrix[6] = 0;
-	projectionMatrix[7] = 0;
-	projectionMatrix[8] = 0;
-	projectionMatrix[9] = 0;
 	projectionMatrix[10] = 1;
-	projectionMatrix[11] = 0;
 	projectionMatrix[12] = tx;
 	projectionMatrix[13] = ty;
-	projectionMatrix[14] = 0;
 	projectionMatrix[15] = 1;
 
 	gl.clear(gl.COLOR_BUFFER_BIT);
