@@ -326,6 +326,7 @@ function createTextureFromImage(gl, image) {
 	const srcFormat = gl.RGBA;
 	const srcType = gl.UNSIGNED_BYTE;
 	gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+	gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
 	gl.texImage2D(gl.TEXTURE_2D, level, internalFormat, srcFormat, srcType, image);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
@@ -357,9 +358,9 @@ function drawTile(gl, glResources, destX, destY, sizeX, sizeY, color, srcX, srcY
 	const texSizeX = 256; // hard-coded; should change
 	const texSizeY = 256; // hard-coded; should change
 	const s0 = srcX / texSizeX;
-	const t0 = (srcY + sizeY) / texSizeY;
+	const t0 = srcY / texSizeY;
 	const s1 = (srcX + sizeX) / texSizeX;
-	const t1 = srcY / texSizeY;
+	const t1 = (srcY + sizeY) / texSizeY;
 	addQuad(gl, glResources, x0, y0, x1, y1, s0, t0, s1, t1, color);
 }
 

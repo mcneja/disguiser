@@ -80,7 +80,7 @@ fn draw_world(world: &World, screen_size_x: i32, screen_size_y: i32) {
 		let dest_x = world_x * 16 + offset_x;
 		let dest_y = world_y * 16 + offset_y;
 		let src_x = 16 * (tile_index % 16);
-		let src_y = 16 * (15 - tile_index / 16);
+		let src_y = 16 * (tile_index / 16);
 		draw_tile(dest_x, dest_y, 16, 16, color, src_x, src_y);
 	};
 
