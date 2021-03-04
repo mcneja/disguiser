@@ -7,10 +7,6 @@ var glResources = {};
 const worldSizeX = 55;
 const worldSizeY = 44;
 
-// Pressed-key state
-
-const keyPressed = new Set();
-
 // Buffer for accumulating geometry to be sent for rendering
 // Position: four vertices per quad, four components per position (x, y, s, t)
 // Colors: four colors per quad, four components (RGBA) per color
@@ -19,6 +15,10 @@ const maxQuads = 4096;
 const vertexPositions = new Float32Array(maxQuads * 16);
 const vertexColors = new Uint32Array(maxQuads * 4);
 let numQuads = 0;
+
+// Projection matrix memory
+
+const projectionMatrix = new Float32Array(16);
 
 // Functions
 
@@ -64,21 +64,31 @@ function main(image, wasm) {
 
 const keymap = {
 	ArrowLeft: 37,
-	Numpad4: 37,
 	ArrowUp: 38,
-	Numpad8: 38,
 	ArrowRight: 39,
-	Numpad6: 39,
 	ArrowDown: 40,
-	Numpad2: 40,
+	Numpad1: 97,
+	Numpad2: 98,
+	Numpad3: 99,
+	Numpad4: 100,
+	Numpad5: 101,
+	Numpad6: 102,
+	Numpad7: 103,
+	Numpad8: 104,
+	Numpad9: 105,
 };
 
 function runWasm(gl, glResources, wasm) {
 
+	let screenValid = false;
+
 	let importObject = {
 		env: {
-			put_tile: function(i, x, y, color) {
+			js_put_tile: function(i, x, y, color) {
 				addTile(gl, glResources, i, x, y, color);
+			},
+			js_invalidate_screen: function() {
+				screenValid = false;
 			}
 		},
 	};
@@ -88,19 +98,29 @@ function runWasm(gl, glResources, wasm) {
 	WebAssembly.instantiateStreaming(wasm, importObject).then(results => {
 		const wasmExports = results.instance.exports;
 
+		function ensureScreenValid() {
+			if (!screenValid) {
+				drawScreen(gl, glResources, () =>
+					wasmExports.rs_on_draw(gl.canvas.clientWidth, gl.canvas.clientHeight)
+				);
+				screenValid = true;
+			}
+		}
+
+		const seed0 = Math.random() * 4294967296;
+		const seed1 = Math.random() * 4294967296;
+
+		wasmExports.rs_start(worldSizeX, worldSizeY, seed0, seed1);
+		ensureScreenValid();
+
 		document.body.addEventListener('keydown', e => {
 			const key = keymap[e.code] || null;
 			// console.log("Key Pressed:" + e.key + " (" + e.code + ") -> " + key);
 			if (key != null) {
-				preDrawScene(gl, glResources);
-				wasmExports.key_down(key);
-				postDrawScene(gl, glResources);
+				wasmExports.rs_on_key_down(key, e.ctrlKey, e.shiftKey);
+				ensureScreenValid();
 			}
 		});
-
-		preDrawScene(gl, glResources);
-		wasmExports.start(worldSizeX, worldSizeY);
-		postDrawScene(gl, glResources);
 	});
 }
 
@@ -205,7 +225,7 @@ function createElementBuffer(gl) {
 	return indexBuffer;
 }
 
-function preDrawScene(gl, glResources) {
+function drawScreen(gl, glResources, drawFunc) {
 	const screenX = gl.canvas.clientWidth;
 	const screenY = gl.canvas.clientHeight;
 	const sx = 32 / screenX;
@@ -213,14 +233,29 @@ function preDrawScene(gl, glResources) {
 	const tx = -16 * worldSizeX / screenX;
 	const ty = -16 * worldSizeY / screenY;
 
-	const projectionMatrix = mat4.fromValues(sx, 0, 0, 0, 0, sy, 0, 0, 0, 0, 1, 0, tx, ty, 0, 1);
+	projectionMatrix[0] = sx;
+	projectionMatrix[1] = 0;
+	projectionMatrix[2] = 0;
+	projectionMatrix[3] = 0;
+	projectionMatrix[4] = 0;
+	projectionMatrix[5] = sy;
+	projectionMatrix[6] = 0;
+	projectionMatrix[7] = 0;
+	projectionMatrix[8] = 0;
+	projectionMatrix[9] = 0;
+	projectionMatrix[10] = 1;
+	projectionMatrix[11] = 0;
+	projectionMatrix[12] = tx;
+	projectionMatrix[13] = ty;
+	projectionMatrix[14] = 0;
+	projectionMatrix[15] = 1;
 
 	gl.clear(gl.COLOR_BUFFER_BIT);
 
 	gl.uniformMatrix4fv(glResources.uniformLocations.projectionMatrix, false, projectionMatrix);
-}
+	
+	drawFunc();
 
-function postDrawScene(gl, glResources) {
 	renderQuads(gl, glResources);
 }
 
