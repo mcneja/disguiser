@@ -1,7 +1,3 @@
-// OpenGL resources
-
-var glResources = {};
-
 // Buffer for accumulating geometry to be sent for rendering
 // Position: four vertices per quad, four components per position (x, y, s, t)
 // Colors: four colors per quad, four components (RGBA) per color
