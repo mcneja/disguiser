@@ -1,3 +1,5 @@
+window.onload = loadResourcesThenRun;
+
 // Buffer for accumulating geometry to be sent for rendering
 // Position: four vertices per quad, four components per position (x, y, s, t)
 // Colors: four colors per quad, four components (RGBA) per color
@@ -21,11 +23,8 @@ const loadImage = src =>
 		img.src = src;
 	});
 
-function loadResourcesThenStart() {
-	Promise.all([
-		loadImage('tiles.png'),
-		fetch('roguelike.wasm'),
-	]).then(([image, wasm]) => {
+function loadResourcesThenRun() {
+	Promise.all([loadImage('tiles.png'), fetch('roguelike.wasm'),]).then(([image, wasm]) => {
 		main(image, wasm);
 	});
 }
@@ -143,8 +142,8 @@ function runWasm(gl, glResources, wasm) {
 			}
 		}
 
-		const seed0 = Math.random() * 4294967296;
-		const seed1 = Math.random() * 4294967296;
+		const seed0 = Math.random() * 2**32;
+		const seed1 = Math.random() * 2**32;
 
 		wasmExports.rs_start(seed0, seed1);
 		ensureScreenValid();
@@ -330,7 +329,6 @@ function createTextureFromImage(gl, image) {
 
 function renderQuads(gl, glResources) {
 	if (numQuads > 0) {
-		// console.log("Render " + numQuads + " quads");
 		gl.bindBuffer(gl.ARRAY_BUFFER, glResources.buffers.position);
 		gl.bufferData(gl.ARRAY_BUFFER, vertexPositions, gl.DYNAMIC_DRAW);
 
@@ -391,5 +389,3 @@ function addQuad(gl, glResources, x0, y0, x1, y1, s0, t0, s1, t1, color) {
 
 	++numQuads;
 }
-
-window.onload = loadResourcesThenStart;
