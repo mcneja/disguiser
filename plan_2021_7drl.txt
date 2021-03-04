@@ -27,7 +27,7 @@ memory, maybe?
 // Functions called to talk to Javascript:
 set_animate_time(t: f32);
 animate_time() -> f32;
-put_tile(tile_index: i32, x: i32, y: i32, color: i32);
+draw_tile(texture: i32, dst_x: i32, dst_y: i32, size_x: i32, size_y: i32, color: i32, src_x: i32, src_y: i32);
 
 // Functions called by the Javascript:
 main(seed: i64) {...}

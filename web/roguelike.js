@@ -2,11 +2,6 @@
 
 var glResources = {};
 
-// Game state
-
-const worldSizeX = 55;
-const worldSizeY = 44;
-
 // Buffer for accumulating geometry to be sent for rendering
 // Position: four vertices per quad, four components per position (x, y, s, t)
 // Colors: four colors per quad, four components (RGBA) per color
@@ -129,8 +124,8 @@ function runWasm(gl, glResources, wasm) {
 
 	let importObject = {
 		env: {
-			js_put_tile: function(i, x, y, color) {
-				addTile(gl, glResources, i, x, y, color);
+			js_draw_tile: function(dst_x, dst_y, size_x, size_y, color, src_x, src_y) {
+				drawTile(gl, glResources, dst_x, dst_y, size_x, size_y, color, src_x, src_y);
 			},
 			js_invalidate_screen: function() {
 				screenValid = false;
@@ -153,7 +148,7 @@ function runWasm(gl, glResources, wasm) {
 		const seed0 = Math.random() * 4294967296;
 		const seed1 = Math.random() * 4294967296;
 
-		wasmExports.rs_start(worldSizeX, worldSizeY, seed0, seed1);
+		wasmExports.rs_start(seed0, seed1);
 		ensureScreenValid();
 
 		document.body.addEventListener('keydown', e => {
@@ -271,10 +266,10 @@ function createElementBuffer(gl) {
 function drawScreen(gl, glResources, drawFunc) {
 	const screenX = gl.canvas.clientWidth;
 	const screenY = gl.canvas.clientHeight;
-	const sx = 32 / screenX;
-	const sy = 32 / screenY;
-	const tx = -16 * worldSizeX / screenX;
-	const ty = -16 * worldSizeY / screenY;
+	const sx = 2 / screenX;
+	const sy = 2 / screenY;
+	const tx = -1;
+	const ty = -1;
 
 	projectionMatrix[0] = sx;
 	projectionMatrix[5] = sy;
@@ -354,16 +349,18 @@ function renderQuads(gl, glResources) {
 	numQuads = 0;
 }
 
-function addTile(gl, glResources, i, x, y, color) {
-	const tileX = i % 16;
-	const tileY = 15 - Math.floor(i / 16);
-
-	const s0 = tileX / 16;
-	const t0 = (tileY + 1) / 16;
-	const s1 = (tileX + 1) / 16;
-	const t1 = tileY / 16;
-
-	addQuad(gl, glResources, x, y, x+1, y+1, s0, t0, s1, t1, color);
+function drawTile(gl, glResources, destX, destY, sizeX, sizeY, color, srcX, srcY) {
+	const x0 = destX;
+	const y0 = destY;
+	const x1 = destX + sizeX;
+	const y1 = destY + sizeY;
+	const texSizeX = 256; // hard-coded; should change
+	const texSizeY = 256; // hard-coded; should change
+	const s0 = srcX / texSizeX;
+	const t0 = (srcY + sizeY) / texSizeY;
+	const s1 = (srcX + sizeX) / texSizeX;
+	const t1 = srcY / texSizeY;
+	addQuad(gl, glResources, x0, y0, x1, y1, s0, t0, s1, t1, color);
 }
 
 function addQuad(gl, glResources, x0, y0, x1, y1, s0, t0, s1, t1, color) {

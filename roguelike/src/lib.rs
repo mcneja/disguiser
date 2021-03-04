@@ -32,11 +32,14 @@ const KEY_NUMPAD8: i32 = 104;
 const KEY_NUMPAD9: i32 = 105;
 const KEY_DECIMAL: i32 = 110;
 
+const WORLD_SIZE_X: i32 = 55;
+const WORLD_SIZE_Y: i32 = 44;
+
 type Coord = (i32, i32);
 
 struct World {
-	view_width: i32,
-	view_height: i32,
+	size_x: i32,
+	size_y: i32,
 	player_position: Coord,
 	trees: Vec<Coord>
 }
@@ -46,8 +49,8 @@ static mut WORLD: Option<World> = None;
 fn make_world(size_x: i32, size_y: i32, seed: u64) -> World {
 	let mut random = Random::seed_from_u64(seed);
 	World {
-		view_width: size_x,
-		view_height: size_y,
+		size_x: size_x,
+		size_y: size_y,
 		player_position: (size_x / 2, size_y / 2),
 		trees: make_trees(100, size_x, size_y, &mut random),
 	}
@@ -66,12 +69,23 @@ fn make_rgb(r: u8, g: u8, b: u8) -> u32 {
 	(0xff << 24) + ((r as u32) << 16) + ((g as u32) << 8) + (b as u32)
 }
 
-fn draw_world(world: &World) {
+fn draw_world(world: &World, screen_size_x: i32, screen_size_y: i32) {
 	let green = make_rgb(0, 174, 0);
 	let gray = make_rgb(168, 168, 168);
 
-	for y in 0..world.view_height {
-		for x in 0..world.view_width {
+	let offset_x = (screen_size_x - world.size_x * 16) / 2;
+	let offset_y = (screen_size_y - world.size_y * 16) / 2;
+
+	let put_tile = |tile_index, world_x, world_y, color| {
+		let dest_x = world_x * 16 + offset_x;
+		let dest_y = world_y * 16 + offset_y;
+		let src_x = 16 * (tile_index % 16);
+		let src_y = 16 * (15 - tile_index / 16);
+		draw_tile(dest_x, dest_y, 16, 16, color, src_x, src_y);
+	};
+
+	for y in 0..world.size_y {
+		for x in 0..world.size_x {
 			put_tile(132, x, y, green); // grass
 		}
 	}
@@ -115,8 +129,8 @@ fn update_world(world: &mut World, key: i32, ctrl_key_down: bool, shift_key_down
 	};
 
 	let new_position = (
-		max(0, min(world.view_width - 1, world.player_position.0 + modifier.0)),
-		max(0, min(world.view_height - 1, world.player_position.1 + modifier.1))
+		max(0, min(world.size_x - 1, world.player_position.0 + modifier.0)),
+		max(0, min(world.size_y - 1, world.player_position.1 + modifier.1))
 	);
 
 	if new_position != world.player_position {
@@ -128,12 +142,12 @@ fn update_world(world: &mut World, key: i32, ctrl_key_down: bool, shift_key_down
 // Javascript imports:
 
 extern {
-    fn js_put_tile(i: u32, x: i32, y: i32, color: u32);
+	fn js_draw_tile(dest_x: i32, dest_y: i32, size_x: i32, size_y: i32, color: u32, src_x: i32, src_y: i32);
 	fn js_invalidate_screen();
 }
 
-fn put_tile(i: u32, x: i32, y: i32, color: u32) -> () {
-	unsafe { js_put_tile(i, x, y, color); }
+fn draw_tile(dest_x: i32, dest_y: i32, size_x: i32, size_y: i32, color: u32, src_x: i32, src_y: i32) {
+	unsafe { js_draw_tile(dest_x, dest_y, size_x, size_y, color, src_x, src_y); }
 }
 
 fn invalidate_screen() {
@@ -143,15 +157,15 @@ fn invalidate_screen() {
 // Javascript exports:
 
 #[no_mangle]
-pub fn rs_on_draw(_screen_size_x: i32, _screen_size_y: i32) {
+pub fn rs_on_draw(screen_size_x: i32, screen_size_y: i32) {
 	if let Some(world) = unsafe { &mut WORLD } {
-		draw_world(&world);
+		draw_world(&world, screen_size_x, screen_size_y);
 	}
 }
 
 #[no_mangle]
-pub fn rs_start(width: i32, height: i32, seed0: u32, seed1: u32) -> () {
-	let world = make_world(width, height, ((seed0 as u64) << 32) + (seed1 as u64));
+pub fn rs_start(seed0: u32, seed1: u32) -> () {
+	let world = make_world(WORLD_SIZE_X, WORLD_SIZE_Y, ((seed0 as u64) << 32) + (seed1 as u64));
 	unsafe { WORLD = Some(world); }
 }
 
