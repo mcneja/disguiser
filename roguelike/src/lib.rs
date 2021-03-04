@@ -30,6 +30,7 @@ const KEY_NUMPAD6: i32 = 102;
 const KEY_NUMPAD7: i32 = 103;
 const KEY_NUMPAD8: i32 = 104;
 const KEY_NUMPAD9: i32 = 105;
+const KEY_DECIMAL: i32 = 110;
 
 type Coord = (i32, i32);
 
@@ -109,6 +110,7 @@ fn update_world(world: &mut World, key: i32, ctrl_key_down: bool, shift_key_down
 		KEY_NUMPAD7 => (-1, 1),
 		KEY_NUMPAD8 => (0, 1),
 		KEY_NUMPAD9 => (1, 1),
+		KEY_DECIMAL => (0, 0),
 		_ => (0,0)
 	};
 

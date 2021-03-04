@@ -120,6 +120,7 @@ const keymap = {
 	Numpad7: 103,
 	Numpad8: 104,
 	Numpad9: 105,
+	Decimal: 110,
 };
 
 function runWasm(gl, glResources, wasm) {
