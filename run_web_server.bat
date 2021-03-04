@@ -1,2 +1,2 @@
 @echo off
-python -m http.server
+python -m http.server --directory web
