@@ -7,7 +7,7 @@ use std::iter::FromIterator;
 use std::cmp::min;
 use std::cmp::max;
 
-type MyRng = rand_pcg::Pcg32;
+type Random = rand_pcg::Pcg32;
 
 const KEY_LEFT: i32 = 37;
 const KEY_UP: i32 = 38;
@@ -44,19 +44,19 @@ struct World {
 static mut WORLD: Option<World> = None;
 
 fn make_world(size_x: i32, size_y: i32, seed: u64) -> World {
-	let mut rng = MyRng::seed_from_u64(seed);
+	let mut random = Random::seed_from_u64(seed);
 	World {
 		view_width: size_x,
 		view_height: size_y,
 		player_position: (size_x / 2, size_y / 2),
-		trees: make_trees(100, size_x, size_y, &mut rng),
+		trees: make_trees(100, size_x, size_y, &mut random),
 	}
 }
 
-fn make_trees(max_trees: usize, size_x: i32, size_y: i32, rng: &mut MyRng) -> Vec<Coord> {
+fn make_trees(max_trees: usize, size_x: i32, size_y: i32, random: &mut Random) -> Vec<Coord> {
 	let mut coord_set: HashSet<Coord> = HashSet::with_capacity(max_trees);
 	for _ in 0..max_trees {
-		let coord = (rng.gen_range(0..size_x), rng.gen_range(0..size_y));
+		let coord = (random.gen_range(0..size_x), random.gen_range(0..size_y));
 		coord_set.insert(coord);
 	}
 	Vec::from_iter(coord_set)
