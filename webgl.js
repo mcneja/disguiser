@@ -41,6 +41,12 @@ function loadResourcesThenStart() {
 
 function main(image, wasm) {
 
+	// The projection matrix mostly stays as zeroes
+
+	projectionMatrix.fill(0);
+	projectionMatrix[10] = 1;
+	projectionMatrix[15] = 1;
+
 	// Initialize all WebGL resources
 
 	const canvas = document.querySelector("#canvas");
@@ -100,9 +106,7 @@ function runWasm(gl, glResources, wasm) {
 
 		function ensureScreenValid() {
 			if (!screenValid) {
-				drawScreen(gl, glResources, () =>
-					wasmExports.rs_on_draw(gl.canvas.clientWidth, gl.canvas.clientHeight)
-				);
+				drawScreen(gl, glResources, wasmExports.rs_on_draw);
 				screenValid = true;
 			}
 		}
@@ -233,19 +237,16 @@ function drawScreen(gl, glResources, drawFunc) {
 	const tx = -16 * worldSizeX / screenX;
 	const ty = -16 * worldSizeY / screenY;
 
-	projectionMatrix.fill(0);
 	projectionMatrix[0] = sx;
 	projectionMatrix[5] = sy;
-	projectionMatrix[10] = 1;
 	projectionMatrix[12] = tx;
 	projectionMatrix[13] = ty;
-	projectionMatrix[15] = 1;
 
 	gl.clear(gl.COLOR_BUFFER_BIT);
 
 	gl.uniformMatrix4fv(glResources.uniformLocations.projectionMatrix, false, projectionMatrix);
 	
-	drawFunc();
+	drawFunc(screenX, screenY);
 
 	renderQuads(gl, glResources);
 }
