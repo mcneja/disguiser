@@ -73,15 +73,19 @@ fn draw_world(world: &World, screen_size_x: i32, screen_size_y: i32) {
 	let green = make_rgb(0, 174, 0);
 	let gray = make_rgb(168, 168, 168);
 
-	let offset_x = (screen_size_x - world.size_x * 16) / 2;
-	let offset_y = (screen_size_y - world.size_y * 16) / 2;
+	const TILE_SIZE: i32 = 16;
+	const TILES_PER_ROW: i32 = 16; // 256 pixels wide divided by 16 pixels per tile
+
+	let offset_x = (screen_size_x - world.size_x * TILE_SIZE) / 2;
+	let offset_y = (screen_size_y - world.size_y * TILE_SIZE) / 2;
 
 	let put_tile = |tile_index, world_x, world_y, color| {
-		let dest_x = world_x * 16 + offset_x;
-		let dest_y = world_y * 16 + offset_y;
-		let src_x = 16 * (tile_index % 16);
-		let src_y = 16 * (tile_index / 16);
-		draw_tile(dest_x, dest_y, 16, 16, color, src_x, src_y);
+		let dest_x = world_x * TILE_SIZE + offset_x;
+		let dest_y = world_y * TILE_SIZE + offset_y;
+		let src_x = TILE_SIZE * (tile_index % TILES_PER_ROW);
+		let src_y = TILE_SIZE * (tile_index / TILES_PER_ROW);
+		let texture_index = 0;
+		draw_tile(dest_x, dest_y, TILE_SIZE, TILE_SIZE, color, texture_index, src_x, src_y);
 	};
 
 	for y in 0..world.size_y {
@@ -142,12 +146,12 @@ fn update_world(world: &mut World, key: i32, ctrl_key_down: bool, shift_key_down
 // Javascript imports:
 
 extern {
-	fn js_draw_tile(dest_x: i32, dest_y: i32, size_x: i32, size_y: i32, color: u32, src_x: i32, src_y: i32);
+	fn js_draw_tile(dest_x: i32, dest_y: i32, size_x: i32, size_y: i32, color: u32, texture_index: u32, src_x: i32, src_y: i32);
 	fn js_invalidate_screen();
 }
 
-fn draw_tile(dest_x: i32, dest_y: i32, size_x: i32, size_y: i32, color: u32, src_x: i32, src_y: i32) {
-	unsafe { js_draw_tile(dest_x, dest_y, size_x, size_y, color, src_x, src_y); }
+fn draw_tile(dest_x: i32, dest_y: i32, size_x: i32, size_y: i32, color: u32, texture_index: u32, src_x: i32, src_y: i32) {
+	unsafe { js_draw_tile(dest_x, dest_y, size_x, size_y, color, texture_index, src_x, src_y); }
 }
 
 fn invalidate_screen() {
@@ -158,7 +162,7 @@ fn invalidate_screen() {
 
 #[no_mangle]
 pub fn rs_on_draw(screen_size_x: i32, screen_size_y: i32) {
-	if let Some(world) = unsafe { &mut WORLD } {
+	if let Some(world) = unsafe { &WORLD } {
 		draw_world(&world, screen_size_x, screen_size_y);
 	}
 }

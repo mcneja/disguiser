@@ -24,12 +24,16 @@ const loadImage = src =>
 	});
 
 function loadResourcesThenRun() {
-	Promise.all([loadImage('tiles.png'), fetch('roguelike.wasm'),]).then(([image, wasm]) => {
-		main(image, wasm);
+	Promise.all([
+		loadImage('tiles.png'),
+		loadImage('font.png'),
+		fetch('roguelike.wasm'),
+	]).then(([tileImage, fontImage, wasm]) => {
+		main([tileImage, fontImage], wasm);
 	});
 }
 
-function main(image, wasm) {
+function main(textureImages, wasm) {
 
 	// The projection matrix mostly stays as zeroes
 
@@ -51,7 +55,7 @@ function main(image, wasm) {
 
 	// Set up various WebGL state that won't change for the duration of the program:
 
-	const glResources = initGlResources(gl, image);
+	const glResources = initGlResources(gl, textureImages);
 
 	// Instantiate and run the WebAssembly module.
 
@@ -121,16 +125,14 @@ function runWasm(gl, glResources, wasm) {
 
 	let importObject = {
 		env: {
-			js_draw_tile: function(dst_x, dst_y, size_x, size_y, color, src_x, src_y) {
-				drawTile(gl, glResources, dst_x, dst_y, size_x, size_y, color, src_x, src_y);
+			js_draw_tile: function(dst_x, dst_y, size_x, size_y, color, textureIndex, src_x, src_y) {
+				drawTile(gl, glResources, dst_x, dst_y, size_x, size_y, color, textureIndex, src_x, src_y);
 			},
 			js_invalidate_screen: function() {
 				screenValid = false;
 			}
 		},
 	};
-
-	let timePrev = performance.now();
 
 	WebAssembly.instantiateStreaming(wasm, importObject).then(results => {
 		const wasmExports = results.instance.exports;
@@ -159,7 +161,7 @@ function runWasm(gl, glResources, wasm) {
 	});
 }
 
-function initGlResources(gl, image) {
+function initGlResources(gl, textureImages) {
 	const vsSource = `
 		attribute vec4 aVertexPosition;
 		attribute vec4 aVertexColor;
@@ -191,7 +193,7 @@ function initGlResources(gl, image) {
 
 	const buffers = initBuffers(gl);
 
-	const texture = createTextureFromImage(gl, image);
+	const textures = textureImages.map(image => createTextureFromImage(gl, image));
 
 	const glResources = {
 		program: program,
@@ -204,7 +206,8 @@ function initGlResources(gl, image) {
 			uSampler: gl.getUniformLocation(program, 'uSampler'),
 		},
 		buffers: buffers,
-		texture: texture,
+		textures: textures,
+		currentTextureIndex: 0,
 	};
 
 	gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
@@ -224,7 +227,7 @@ function initGlResources(gl, image) {
 	gl.useProgram(glResources.program);
 
 	gl.activeTexture(gl.TEXTURE0);
-	gl.bindTexture(gl.TEXTURE_2D, glResources.texture);
+	gl.bindTexture(gl.TEXTURE_2D, glResources.textures[glResources.currentTextureIndex]);
 	gl.uniform1i(glResources.uniformLocations.uSampler, 0);
 
 	return glResources;
@@ -340,7 +343,7 @@ function renderQuads(gl, glResources) {
 	numQuads = 0;
 }
 
-function drawTile(gl, glResources, destX, destY, sizeX, sizeY, color, srcX, srcY) {
+function drawTile(gl, glResources, destX, destY, sizeX, sizeY, color, textureIndex, srcX, srcY) {
 	const x0 = destX;
 	const y0 = destY;
 	const x1 = destX + sizeX;
@@ -351,11 +354,18 @@ function drawTile(gl, glResources, destX, destY, sizeX, sizeY, color, srcX, srcY
 	const t0 = srcY / texSizeY;
 	const s1 = (srcX + sizeX) / texSizeX;
 	const t1 = (srcY + sizeY) / texSizeY;
-	addQuad(gl, glResources, x0, y0, x1, y1, s0, t0, s1, t1, color);
+	addQuad(gl, glResources, x0, y0, x1, y1, s0, t0, s1, t1, color, textureIndex);
 }
 
-function addQuad(gl, glResources, x0, y0, x1, y1, s0, t0, s1, t1, color) {
-	if (numQuads >= maxQuads) {
+function addQuad(gl, glResources, x0, y0, x1, y1, s0, t0, s1, t1, color, textureIndex) {
+	textureIndex = Math.max(0, Math.min(glResources.textures.length - 1, textureIndex));
+	if (textureIndex != glResources.currentTextureIndex) {
+		// Texture is different; render and change textures
+		renderQuads(gl, glResources);
+		glResources.currentTextureIndex = textureIndex;
+		gl.bindTexture(gl.TEXTURE_2D, glResources.textures[glResources.currentTextureIndex]);
+	} else if (numQuads >= maxQuads) {
+		// Buffer is full; render
 		renderQuads(gl, glResources);
 	}
 

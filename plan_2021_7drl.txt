@@ -1,6 +1,6 @@
 2021 7DRL Plan
 
-Goals:
+== Goals ==
 
   * Web playable, for a larger audience
   * Evolve the ThiefRL game
@@ -11,6 +11,30 @@ confront the villain.
 I'd like to play in a space that consists of a large mansion or two
 surrounded by slums and gang turf. Perhaps with multiple levels, with
 sewers and catacombs below and upper floors in the mansions.
+
+New mechanics:
+
+  * Disguises
+      * Outfits are placed in the environment and you can swap at them
+	  * People who will instantly give chase are marked
+	  * People who will see through your disguise are marked
+      * Some outfits offer protection against cold or dust
+  * Identify -- find a specific person by looking at the "faces" of NPCs up close
+  * Isolate -- get into a space alone with an NPC to trigger a conversation
+  * Ways to route NPCs and immobilize them. The isolate gameplay will require being
+    able to do something like this. Maybe things that attract specific types of NPCs
+	and then hold their attention until something bigger interrupts?
+  * Big loot -- stealing these gets noticed and triggers changes to enemy layout
+      * Maybe at first it concentrates enemies in the space where the big loot was,
+	    but then over time they spend less time there
+  * Wet tracks -- going through water makes tracks that trigger suspicious investigation
+
+== To Do ==
+
+ [ ] Get texture switching working
+ [ ] Port over the Quicksilver version of ThiefRL
+ [ ] Break up lib.rs into an interface module and the game itself
+ [ ] Figure out how to host this
 
 == Web Playability ==
 
