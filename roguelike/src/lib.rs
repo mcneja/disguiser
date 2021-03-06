@@ -1,11 +1,15 @@
 extern crate rand;
 extern crate rand_pcg;
 
+mod fontdata;
+
 use rand::{Rng, SeedableRng};
 use std::collections::HashSet;
 use std::iter::FromIterator;
 use std::cmp::min;
 use std::cmp::max;
+
+use crate::fontdata::{Glyph, GLYPH};
 
 type Random = rand_pcg::Pcg32;
 
@@ -34,6 +38,9 @@ const KEY_DECIMAL: i32 = 110;
 
 const WORLD_SIZE_X: i32 = 55;
 const WORLD_SIZE_Y: i32 = 44;
+
+const BAR_HEIGHT: i32 = fontdata::LINE_HEIGHT + 2;
+const BAR_BACKGROUND_COLOR: u32 = 0xff101010;
 
 type Coord = (i32, i32);
 
@@ -99,6 +106,11 @@ fn draw_world(world: &World, screen_size_x: i32, screen_size_y: i32) {
 	}
 
 	put_tile(208, world.player_position.0, world.player_position.1, gray);
+
+	draw_rect(0, screen_size_y - BAR_HEIGHT, screen_size_x, BAR_HEIGHT, BAR_BACKGROUND_COLOR);
+	draw_rect(0, 0, screen_size_x, BAR_HEIGHT, BAR_BACKGROUND_COLOR);
+
+	puts_proportional(4, screen_size_y - fontdata::LINE_HEIGHT + 4, "Press F1 for help", 0xffffffff);
 }
 
 fn update_world(world: &mut World, key: i32, ctrl_key_down: bool, shift_key_down: bool) {
@@ -143,11 +155,40 @@ fn update_world(world: &mut World, key: i32, ctrl_key_down: bool, shift_key_down
 	}
 }
 
+// Text rendering stuff (temporarily here)
+
+fn glyph_lookup(c: char) -> Option<&'static Glyph> {
+    let id = c as usize;
+    GLYPH.iter().find(|&glyph| glyph.id == id)
+}
+
+fn puts_proportional(mut x: i32, mut y: i32, s: &str, color: u32) -> i32 {
+	let x_base = x;
+	const TEXTURE_INDEX: u32 = 1;
+
+    for c in s.chars() {
+        if c == '\n' {
+            y -= if x == x_base {fontdata::LINE_HEIGHT / 2} else {fontdata::LINE_HEIGHT};
+            x = x_base;
+        } else if let Some(glyph) = glyph_lookup(c) {
+			draw_tile(x + glyph.x_offset, y + glyph.y_offset, glyph.width, glyph.height, color, TEXTURE_INDEX, glyph.x, glyph.y);
+            x += glyph.x_advance;
+        }
+    }
+
+    x
+}
+
 // Javascript imports:
 
 extern {
+	fn js_draw_rect(dest_x: i32, dest_y: i32, size_x: i32, size_y: i32, color: u32);
 	fn js_draw_tile(dest_x: i32, dest_y: i32, size_x: i32, size_y: i32, color: u32, texture_index: u32, src_x: i32, src_y: i32);
 	fn js_invalidate_screen();
+}
+
+fn draw_rect(dest_x: i32, dest_y: i32, size_x: i32, size_y: i32, color: u32) {
+	unsafe { js_draw_rect(dest_x, dest_y, size_x, size_y, color) };
 }
 
 fn draw_tile(dest_x: i32, dest_y: i32, size_x: i32, size_y: i32, color: u32, texture_index: u32, src_x: i32, src_y: i32) {

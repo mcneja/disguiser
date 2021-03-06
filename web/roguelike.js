@@ -125,6 +125,9 @@ function runWasm(gl, glResources, wasm) {
 
 	let importObject = {
 		env: {
+			js_draw_rect: function(dst_x, dst_y, size_x, size_y, color) {
+				drawTile(gl, glResources, dst_x, dst_y, size_x, size_y, color, glResources.textures.length - 1, 0, 0);
+			},
 			js_draw_tile: function(dst_x, dst_y, size_x, size_y, color, textureIndex, src_x, src_y) {
 				drawTile(gl, glResources, dst_x, dst_y, size_x, size_y, color, textureIndex, src_x, src_y);
 			},
@@ -194,6 +197,7 @@ function initGlResources(gl, textureImages) {
 	const buffers = initBuffers(gl);
 
 	const textures = textureImages.map(image => createTextureFromImage(gl, image));
+	textures.push(createTextureFromColor(gl, 255, 255, 255, 255));
 
 	const glResources = {
 		program: program,
@@ -311,6 +315,24 @@ function loadShader(gl, type, source) {
 	return shader;
 }
 
+function createTextureFromColor(gl, r, g, b, a) {
+	const texture = gl.createTexture();
+	gl.bindTexture(gl.TEXTURE_2D, texture);
+
+	const level = 0;
+	const internalFormat = gl.RGBA;
+	const width = 1;
+	const height = 1;
+	const border = 0;
+	const srcFormat = gl.RGBA;
+	const srcType = gl.UNSIGNED_BYTE;
+	const pixel = new Uint8Array([r, g, b, a]);
+	gl.texImage2D(gl.TEXTURE_2D, level, internalFormat,
+				  width, height, border, srcFormat, srcType,
+				  pixel);
+	return texture;
+}
+
 function createTextureFromImage(gl, image) {
 	const texture = gl.createTexture();
 	gl.bindTexture(gl.TEXTURE_2D, texture);
@@ -319,7 +341,7 @@ function createTextureFromImage(gl, image) {
 	const internalFormat = gl.RGBA;
 	const srcFormat = gl.RGBA;
 	const srcType = gl.UNSIGNED_BYTE;
-	gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+//	gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
 	gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
 	gl.texImage2D(gl.TEXTURE_2D, level, internalFormat, srcFormat, srcType, image);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
