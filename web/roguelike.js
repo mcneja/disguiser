@@ -157,6 +157,7 @@ function runWasm(gl, glResources, wasm) {
 			const key = keymap[e.code] || null;
 			// console.log("Key Pressed:" + e.key + " (" + e.code + ") -> " + key);
 			if (key != null) {
+				e.preventDefault();
 				wasmExports.rs_on_key_down(key, e.ctrlKey, e.shiftKey);
 				ensureScreenValid();
 			}
