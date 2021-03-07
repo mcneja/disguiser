@@ -10,6 +10,7 @@ pub struct Glyph {
 }
 
 pub const LINE_HEIGHT: i32 = 26;
+#[allow(dead_code, unused_variables)]
 pub const BASE: i32 = 21;
 pub static GLYPH: [Glyph; 336] = [
 	Glyph { id: 32, x: 12, y: 214, width: 1, height: 1, x_offset: 0, y_offset: -5, x_advance: 5 },
