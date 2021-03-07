@@ -77,13 +77,9 @@ fn make_trees(max_trees: usize, size_x: i32, size_y: i32, random: &mut Random) -
 	Vec::from_iter(coord_set)
 }
 
-fn make_rgb(r: u8, g: u8, b: u8) -> u32 {
-	(0xff << 24) + ((r as u32) << 16) + ((g as u32) << 8) + (b as u32)
-}
-
 pub fn on_draw(game: &Game, screen_size_x: i32, screen_size_y: i32) {
-	let green = make_rgb(0, 174, 0);
-	let gray = make_rgb(168, 168, 168);
+	const GREEN: u32 = 0xff00ae00;
+	const GRAY: u32 = 0xffa8a8a8;
 
 	let offset_x = (screen_size_x - game.size_x * TILE_SIZE) / 2;
 	let offset_y = (screen_size_y - game.size_y * TILE_SIZE) / 2;
@@ -96,15 +92,15 @@ pub fn on_draw(game: &Game, screen_size_x: i32, screen_size_y: i32) {
 
 	for y in 0..game.size_y {
 		for x in 0..game.size_x {
-			put_tile(132, x, y, green); // grass
+			put_tile(132, x, y, GREEN); // grass
 		}
 	}
 
 	for (x, y) in &game.trees {
-		put_tile(144, *x, *y, green);
+		put_tile(144, *x, *y, GREEN);
 	}
 
-	put_tile(208, game.player.pos.0, game.player.pos.1, gray);
+	put_tile(208, game.player.pos.0, game.player.pos.1, GRAY);
 
 	draw_top_status_bar(screen_size_x, screen_size_y, game);
 	draw_bottom_status_bar(screen_size_x, screen_size_y, game);
@@ -264,7 +260,7 @@ fn draw_bottom_status_bar(screen_size_x: i32, _screen_size_y: i32, game: &Game) 
         x += TILE_SIZE;
     }
 
-    let player_underwater = false; // map.cells[[player.pos.0 as usize, player.pos.1 as usize]].cell_type == CellType::GroundWater && player.turns_remaining_underwater > 0;
+    let player_underwater = false; // game.map.cells[[game.player.pos.0 as usize, game.player.pos.1 as usize]].cell_type == CellType::GroundWater && game.player.turns_remaining_underwater > 0;
 
     if player_underwater {
         x = screen_size_x / 4 - 16;
@@ -345,45 +341,48 @@ fn draw_top_status_bar(screen_size_x: i32, screen_size_y: i32, game: &Game) {
 }
 
 static HELP_MESSAGES: &[&str] = &[
-    "ThiefRL 2 (Web version: 2021 March 7)\n\
-    \n\
-    Press right arrow for hints, or ? to toggle this help\n\
-    \n\
-    Sneak into mansions, map them, steal all the loot and get out.\n\
-    \n\
-    The guards cannot be injured! They also cannot cut corners diagonally.\n\
-    \n\
-    Use the numpad keys to move horizontally, vertically, and diagonally.\n\
-    Use numpad 5 to wait. Alternatively use the keys (7 8 9 U I O J K L)\n\
-    or (Q W E A S D Z X C).\n\
-    \n\
-    Health is shown on the status bar in the lower left. View zoom: 1-4\n\
-    \n\
-    A 2016 Seven-day Roguelike Challenge game by James McNeill\n\
-    \n\
-    Testing: Mike Gaffney, Mendi Carroll\n\
-    Special Thanks: Mendi Carroll\n\
-    \n\
-    http://playtechs.blogspot.com",
 
-    "Hints\n\
-    \n\
-    Pick up gold coins by moving over them.\n\
-    \n\
-    Diagonal movement is critical! Guards cannot cut corners, so moving\n\
-    diagonally around corners is the key to gaining distance from them.\n\
-    \n\
-    Guards can only see ahead of themselves.\n\
-    \n\
-    If a guard sees you and is standing next to you, he will attack!\n\
-    \n\
-    Bushes, tables, and water can all serve as hiding places. Patrolling guards\n\
-    cannot see you when you are hidden. Alert guards (with a question mark\n\
-    over their heads) can see you if they are next to you.\n\
-    \n\
-    High one-way windows allow for quick escapes. Guards can't use them!\n\
-    \n\
-    Guards can't see as far in the dark outside the mansion."
+// Page 1
+"ThiefRL 2 (Web version: 2021 March 7)
+
+Press right arrow for hints, or ? to toggle this help
+
+Sneak into mansions, map them, steal all the loot and get out.
+
+The guards cannot be injured! They also cannot cut corners diagonally.
+
+Use the numpad keys to move horizontally, vertically, and diagonally.
+Use numpad 5 to wait. Alternatively use the keys (H J K L Y U B N),
+or arrow keys with Shift/Ctrl plus Left/Right to move diagonally.
+
+Health is shown on the status bar in the lower left.
+
+A 2016 Seven-day Roguelike Challenge game by James McNeill
+
+Testing: Mike Gaffney, Mendi Carroll
+Special Thanks: Mendi Carroll
+
+http://playtechs.blogspot.com",
+
+// Page 2
+"Hints
+
+Pick up gold coins by moving over them.
+
+Diagonal movement is critical! Guards cannot cut corners, so moving
+diagonally around corners is the key to gaining distance from them.
+
+Guards can only see ahead of themselves.
+
+If a guard sees you and is standing next to you, he will attack!
+
+Bushes, tables, and water can all serve as hiding places. Patrolling guards
+cannot see you when you are hidden. Alert guards (with a question mark
+over their heads) can see you if they are next to you.
+
+High one-way windows allow for quick escapes. Guards can't use them!
+
+Guards can't see as far in the dark outside the mansion."
 ];
 
 fn draw_help(screen_size_x: i32, screen_size_y: i32, help_page: usize) {
