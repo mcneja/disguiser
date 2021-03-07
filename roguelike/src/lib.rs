@@ -4,11 +4,11 @@ extern crate rand_pcg;
 mod fontdata;
 mod game;
 
-// The global game state (not thread-safe, but this program is single-threaded)
+// Global game state (not thread-safe, but this program is single-threaded)
 
 static mut STATE: Option<game::State> = None;
 
-// Functions Javascript calls to talk to Rust:
+// Javascript-facing interface
 
 #[no_mangle]
 pub fn rs_start(seed0: u32, seed1: u32) -> () {
@@ -31,8 +31,10 @@ pub fn rs_on_key_down(key: i32, ctrl_key_down: i32, shift_key_down: i32) -> () {
 	}
 }
 
+// Rust-facing interface
+
 mod engine {
-	/// Key codes passed to rs_on_draw()
+	/// Key codes passed to game::on_key_down()
 	pub const KEY_LEFT: i32 = 37;
 	pub const KEY_UP: i32 = 38;
 	pub const KEY_RIGHT: i32 = 39;
@@ -55,8 +57,6 @@ mod engine {
 	pub const KEY_NUMPAD8: i32 = 104;
 	pub const KEY_NUMPAD9: i32 = 105;
 	pub const KEY_DECIMAL: i32 = 110;
-
-	// Functions for talking to Javascript:
 
 	/// Fill a rectangle with a solid color. Only call during game::on_draw().
 	pub fn draw_rect(dest_x: i32, dest_y: i32, size_x: i32, size_y: i32, color: u32) {
