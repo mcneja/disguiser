@@ -32,9 +32,9 @@ New mechanics:
 == To Do ==
 
  [ ] Port over the Quicksilver version of ThiefRL
- [ ] Break up lib.rs into an interface module and the game itself
  [ ] Figure out how to host this
 
+ [X] Break up lib.rs into an interface module and the game itself
  [X] Get texture switching working
 
 == Web Playability ==

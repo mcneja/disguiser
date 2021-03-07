@@ -17,16 +17,16 @@ const BAR_BACKGROUND_COLOR: u32 = 0xff101010;
 
 type Coord = (i32, i32);
 
-pub struct World {
+pub struct State {
 	size_x: i32,
 	size_y: i32,
 	player_position: Coord,
 	trees: Vec<Coord>
 }
 
-pub fn new_game(seed: u64) -> World {
+pub fn new_state(seed: u64) -> State {
 	let mut random = Random::seed_from_u64(seed);
-	World {
+	State {
 		size_x: WORLD_SIZE_X,
 		size_y: WORLD_SIZE_Y,
 		player_position: (WORLD_SIZE_X / 2, WORLD_SIZE_Y / 2),
@@ -47,15 +47,15 @@ fn make_rgb(r: u8, g: u8, b: u8) -> u32 {
 	(0xff << 24) + ((r as u32) << 16) + ((g as u32) << 8) + (b as u32)
 }
 
-pub fn on_draw(world: &World, screen_size_x: i32, screen_size_y: i32) {
+pub fn on_draw(state: &State, screen_size_x: i32, screen_size_y: i32) {
 	let green = make_rgb(0, 174, 0);
 	let gray = make_rgb(168, 168, 168);
 
 	const TILE_SIZE: i32 = 16;
 	const TILES_PER_ROW: i32 = 16; // 256 pixels wide divided by 16 pixels per tile
 
-	let offset_x = (screen_size_x - world.size_x * TILE_SIZE) / 2;
-	let offset_y = (screen_size_y - world.size_y * TILE_SIZE) / 2;
+	let offset_x = (screen_size_x - state.size_x * TILE_SIZE) / 2;
+	let offset_y = (screen_size_y - state.size_y * TILE_SIZE) / 2;
 
 	let put_tile = |tile_index, world_x, world_y, color| {
 		let dest_x = world_x * TILE_SIZE + offset_x;
@@ -66,17 +66,17 @@ pub fn on_draw(world: &World, screen_size_x: i32, screen_size_y: i32) {
 		engine::draw_tile(dest_x, dest_y, TILE_SIZE, TILE_SIZE, color, texture_index, src_x, src_y);
 	};
 
-	for y in 0..world.size_y {
-		for x in 0..world.size_x {
+	for y in 0..state.size_y {
+		for x in 0..state.size_x {
 			put_tile(132, x, y, green); // grass
 		}
 	}
 
-	for (x, y) in &world.trees {
+	for (x, y) in &state.trees {
 		put_tile(144, *x, *y, green);
 	}
 
-	put_tile(208, world.player_position.0, world.player_position.1, gray);
+	put_tile(208, state.player_position.0, state.player_position.1, gray);
 
 	engine::draw_rect(0, screen_size_y - BAR_HEIGHT, screen_size_x, BAR_HEIGHT, BAR_BACKGROUND_COLOR);
 	engine::draw_rect(0, 0, screen_size_x, BAR_HEIGHT, BAR_BACKGROUND_COLOR);
@@ -84,7 +84,7 @@ pub fn on_draw(world: &World, screen_size_x: i32, screen_size_y: i32) {
 	puts_proportional(4, screen_size_y - fontdata::LINE_HEIGHT + 4, "Press F1 for help", 0xffffffff);
 }
 
-pub fn on_key_down(world: &mut World, key: i32, ctrl_key_down: bool, shift_key_down: bool) {
+pub fn on_key_down(state: &mut State, key: i32, ctrl_key_down: bool, shift_key_down: bool) {
 	let vertical_offset =
 		if ctrl_key_down {-1} else {0} +
 		if shift_key_down {1} else {0};
@@ -116,12 +116,12 @@ pub fn on_key_down(world: &mut World, key: i32, ctrl_key_down: bool, shift_key_d
 	};
 
 	let new_position = (
-		max(0, min(world.size_x - 1, world.player_position.0 + modifier.0)),
-		max(0, min(world.size_y - 1, world.player_position.1 + modifier.1))
+		max(0, min(state.size_x - 1, state.player_position.0 + modifier.0)),
+		max(0, min(state.size_y - 1, state.player_position.1 + modifier.1))
 	);
 
-	if new_position != world.player_position {
-		world.player_position = new_position;
+	if new_position != state.player_position {
+		state.player_position = new_position;
 		engine::invalidate_screen();
 	}
 }

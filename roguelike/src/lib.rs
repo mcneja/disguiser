@@ -6,28 +6,28 @@ mod game;
 
 // The global game state (not thread-safe, but this program is single-threaded)
 
-static mut WORLD: Option<game::World> = None;
+static mut STATE: Option<game::State> = None;
 
 // Functions Javascript calls to talk to Rust:
 
 #[no_mangle]
 pub fn rs_start(seed0: u32, seed1: u32) -> () {
 	let seed = ((seed0 as u64) << 32) + (seed1 as u64);
-	let world = game::new_game(seed);
-	unsafe { WORLD = Some(world); }
+	let state = game::new_state(seed);
+	unsafe { STATE = Some(state); }
 }
 
 #[no_mangle]
 pub fn rs_on_draw(screen_size_x: i32, screen_size_y: i32) {
-	if let Some(world) = unsafe { &WORLD } {
-		game::on_draw(&world, screen_size_x, screen_size_y);
+	if let Some(state) = unsafe { &STATE } {
+		game::on_draw(&state, screen_size_x, screen_size_y);
 	}
 }
 
 #[no_mangle]
 pub fn rs_on_key_down(key: i32, ctrl_key_down: i32, shift_key_down: i32) -> () {
-	if let Some(world) = unsafe { &mut WORLD } {
-		game::on_key_down(world, key, ctrl_key_down != 0, shift_key_down != 0);
+	if let Some(state) = unsafe { &mut STATE } {
+		game::on_key_down(state, key, ctrl_key_down != 0, shift_key_down != 0);
 	}
 }
 
