@@ -110,7 +110,7 @@ fn draw_world(world: &World, screen_size_x: i32, screen_size_y: i32) {
 	draw_rect(0, screen_size_y - BAR_HEIGHT, screen_size_x, BAR_HEIGHT, BAR_BACKGROUND_COLOR);
 	draw_rect(0, 0, screen_size_x, BAR_HEIGHT, BAR_BACKGROUND_COLOR);
 
-	puts_proportional(4, screen_size_y - fontdata::LINE_HEIGHT + 4, "Press F1 for help", 0xffffffff);
+	puts_proportional(4, screen_size_y - fontdata::LINE_HEIGHT + 4, "Hello, world!", 0xffffffff);
 }
 
 fn update_world(world: &mut World, key: i32, ctrl_key_down: bool, shift_key_down: bool) {
