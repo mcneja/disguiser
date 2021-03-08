@@ -81,9 +81,38 @@ fn text_color(popup_type: PopupType) -> u32 {
 	match popup_type {
 		PopupType::Noise => color_preset::LIGHT_CYAN,
 		PopupType::Damage => color_preset::LIGHT_RED,
+		PopupType::GuardSpeech => color_preset::WHITE,
+		PopupType::Narration => color_preset::BLACK,
+	}
+}
+
+fn background_color(popup_type: PopupType) -> u32 {
+    match popup_type {
+		PopupType::Noise => color_preset::BLACK,
+		PopupType::Damage => color_preset::BLACK,
+		PopupType::GuardSpeech => color_preset::BLACK,
+		PopupType::Narration => color_preset::WHITE,
+    }
+}
+
+fn border_color(popup_type: PopupType) -> u32 {
+    match popup_type {
+		PopupType::Noise => color_preset::LIGHT_CYAN,
+		PopupType::Damage => color_preset::LIGHT_RED,
 		PopupType::GuardSpeech => color_preset::LIGHT_MAGENTA,
 		PopupType::Narration => color_preset::WHITE,
-	}
+    }
+}
+
+// This function and TILE_SIZE are duplicated from game.rs!
+
+fn draw_tile_by_index(tile_index: u32, dest_x: i32, dest_y: i32, color: u32) {
+    const TILE_SIZE: i32 = 16;
+	const TEXTURE_INDEX: u32 = 0;
+	const TILES_PER_ROW: u32 = 16; // 256 pixels wide divided by 16 pixels per tile
+	let src_x = TILE_SIZE * (tile_index % TILES_PER_ROW) as i32;
+	let src_y = TILE_SIZE * (tile_index / TILES_PER_ROW) as i32;
+	engine::draw_tile(dest_x, dest_y, TILE_SIZE, TILE_SIZE, color, TEXTURE_INDEX, src_x, src_y);
 }
 
 fn draw_popup(view_scale: Coord, view_offset: Coord, p: &PopupPlaced) {
@@ -93,14 +122,22 @@ fn draw_popup(view_scale: Coord, view_offset: Coord, p: &PopupPlaced) {
 
 	// Draw background and border.
 
-    /*
-	let mut text_x = pos.0;
-	let mut text_y = pos.1 + p.size.1;
+    let fill_rect = |min_x: i32, min_y: i32, size_x: i32, size_y: i32, color: u32, tile_index: u32| {
+        for x in min_x..min_x+size_x {
+            for y in min_y..min_y+size_y {
+                draw_tile_by_index(tile_index, x * view_scale.0 + view_offset.0, y * view_scale.1 + view_offset.1, color);
+            }
+        }
+    };
+
+	let text_x = pos.0 + if has_box {1} else {0};
+	let text_y = pos.1 + p.size.1 - if has_box {1} else {0};
+	let text_pos = view_offset + view_scale.mul_components(Coord(text_x, text_y));
+
+	let x_start = text_pos.0;
+	let y_start = text_pos.1 - (LINE_HEIGHT + p.offset.1) + if has_box {0} else {-16};
 
 	if has_box {
-		text_x += 1;
-		text_y -= 1;
-
 		let sx = p.size.0;
 		let sy = p.size.1;
 		let x0 = pos.0;
@@ -108,38 +145,29 @@ fn draw_popup(view_scale: Coord, view_offset: Coord, p: &PopupPlaced) {
 		let y0 = pos.1;
 		let y1 = pos.1 + sy - 1;
 
-		viewport.put_char(x0, y0, edge_attr, 228);
-		viewport.put_char(x1, y0, edge_attr, 229);
-		viewport.put_char(x0, y1, edge_attr, 230);
-		viewport.put_char(x1, y1, edge_attr, 231);
+        engine::draw_rect(
+            x0 * view_scale.0 + view_offset.0,
+            y0 * view_scale.1 + view_offset.1,
+            sx * view_scale.0,
+            sy * view_scale.1,
+            background_color(p.popup_type));
 
-		let edge_attr: u8 = POPUP_EDGE_ATTR[p.popup_type];
-
-		window.draw(
-			&Rectangle::new(pos_px, image.area().size()),
-			Blended(&image, color),
-		);
-
-		fill_rect(viewport, x0 + 1, y0, sx-2, 1, edge_attr, 226);
-		fill_rect(viewport, x0 + 1, y1, sx-2, 1, edge_attr, 227);
-		fill_rect(viewport, x0, y0 + 1, 1, sy-2, edge_attr, 224);
-		fill_rect(viewport, x1, y0 + 1, 1, sy-2, edge_attr, 225);
-		fill_rect(viewport, x0 + 1, y0 + 1, sx - 2, sy - 2, edge_attr, 0x20);
-	}
-    */
-
-	// Draw the text.
-
-//	let text_pos = viewport.to_screen(Coord(text_x, text_y));
-	let text_pos = view_offset + view_scale.mul_components(pos);
-
-	let x_start = text_pos.0;
-	let y_start = text_pos.1 - (LINE_HEIGHT + p.offset.1) + if has_box {0} else {-16};
-
-	if !has_box {
+        let border_color = border_color(p.popup_type);
+        fill_rect(x0, y0, 1, 1, border_color, 228);
+        fill_rect(x1, y0, 1, 1, border_color, 229);
+        fill_rect(x0, y1, 1, 1, border_color, 230);
+        fill_rect(x1, y1, 1, 1, border_color, 231);
+		fill_rect(x0 + 1, y0, sx-2, 1, border_color, 226);
+		fill_rect(x0 + 1, y1, sx-2, 1, border_color, 227);
+		fill_rect(x0, y0 + 1, 1, sy-2, border_color, 224);
+		fill_rect(x1, y0 + 1, 1, sy-2, border_color, 225);
+	} else {
+        // Draw text "outline"
 		puts_proportional(x_start + 2, y_start - 2, p.msg, color_preset::BLACK);
 		puts_proportional(x_start + 1, y_start - 1, p.msg, color_preset::BLACK);
-	}
+    }
+
+	// Draw the text
 
 	puts_proportional(x_start, y_start, p.msg, text_color(p.popup_type));
 }
@@ -246,7 +274,7 @@ fn layout_single(view_min: Coord, view_max: Coord, focus: Coord, p: &Popup) -> P
         // the line between source and focus.
 
         let mut dir = p.world_origin - focus;
-        if dir.0 == 0 && dir.1 == 0 {
+        if dir == Coord(0, 0) {
             dir.0 = 1;
         }
 
