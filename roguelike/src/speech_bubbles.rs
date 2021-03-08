@@ -44,17 +44,14 @@ impl Popups {
     
     pub fn guard_speech(&mut self, pos: Coord, s: &'static str) {
         self.push(PopupType::GuardSpeech, pos, s);
-        println!("{}", s);
     }
 
     pub fn damage(&mut self, pos: Coord, s: &'static str) {
         self.push(PopupType::Damage, pos, s);
-        println!("{}", s);
     }
 
     pub fn noise(&mut self, pos: Coord, s: &'static str) {
         self.push(PopupType::Noise, pos, s);
-        println!("{}", s);
     }
 
     pub fn draw(&self, screen_size_x: i32, screen_size_y: i32, view_scale: Coord, view_offset: Coord, focus: Coord) {
