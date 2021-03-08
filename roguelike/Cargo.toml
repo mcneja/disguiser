@@ -13,4 +13,3 @@ rand_pcg = "0.3.0"
 
 [profile.release]
 lto = true
-opt-level = 's'
