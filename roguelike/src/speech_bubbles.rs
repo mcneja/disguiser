@@ -1,8 +1,8 @@
 use std::cmp::{min, max};
+use crate::color_preset;
+use crate::coord::Coord;
 use crate::engine;
 use crate::fontdata::{Glyph, GLYPH, LINE_HEIGHT};
-use crate::cell_grid::{Point, coord_add, coord_subtract, coord_mul_components};
-use crate::color_preset;
 
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum PopupType {
@@ -14,17 +14,17 @@ pub enum PopupType {
 
 pub struct Popup {
     pub popup_type: PopupType,
-    pub world_origin: Point, // world tile position
+    pub world_origin: Coord, // world tile position
     pub msg: &'static str,
 }
 
 struct PopupPlaced {
     pub popup_type: PopupType,
-    pub world_origin: Point, // world tile position
+    pub world_origin: Coord, // world tile position
     pub msg: &'static str,
-    pub size: Point, // 16x16 tiles
-    pub offset: Point, // pixels, from top left to first character position
-    pub pos: Point,
+    pub size: Coord, // 16x16 tiles
+    pub offset: Coord, // pixels, from top left to first character position
+    pub pos: Coord,
 }
 
 pub struct Popups {
@@ -42,31 +42,31 @@ impl Popups {
         self.popups.clear();
     }
     
-    pub fn guard_speech(&mut self, pos: Point, s: &'static str) {
+    pub fn guard_speech(&mut self, pos: Coord, s: &'static str) {
         self.push(PopupType::GuardSpeech, pos, s);
         println!("{}", s);
     }
 
-    pub fn damage(&mut self, pos: Point, s: &'static str) {
+    pub fn damage(&mut self, pos: Coord, s: &'static str) {
         self.push(PopupType::Damage, pos, s);
         println!("{}", s);
     }
 
-    pub fn noise(&mut self, pos: Point, s: &'static str) {
+    pub fn noise(&mut self, pos: Coord, s: &'static str) {
         self.push(PopupType::Noise, pos, s);
         println!("{}", s);
     }
 
-    pub fn draw(&self, screen_size_x: i32, screen_size_y: i32, view_scale: Point, view_offset: Point, focus: Point) {
-        let view_min = (0, 0);
-        let view_max = (screen_size_x, screen_size_y);
+    pub fn draw(&self, screen_size_x: i32, screen_size_y: i32, view_scale: Coord, view_offset: Coord, focus: Coord) {
+        let view_min = Coord(0, 0);
+        let view_max = Coord(screen_size_x, screen_size_y);
         let placed_popups = layout(view_min, view_max, focus, &self.popups);
         for p in &placed_popups {
 			draw_popup(view_scale, view_offset, p);
         }
     }
 
-    fn push(&mut self, popup_type: PopupType, pos: Point, s: &'static str) {
+    fn push(&mut self, popup_type: PopupType, pos: Coord, s: &'static str) {
         self.popups.push(
             Popup {
                 popup_type: popup_type,
@@ -86,26 +86,16 @@ fn text_color(popup_type: PopupType) -> u32 {
 	}
 }
 
-/*
-fn fill_rect(window: &mut Window, font_image: &Image, view_scale: Point view_offset: Point, x_min: i32, y_min: i32, x_size: i32, y_size: i32, attr: u8, ch: u8)
-{
-	for x in 0..x_size {
-		for y in 0..y_size {
-			viewport.put_char(x + x_min, y + y_min, attr, ch);
-		}
-	}
-}
-*/
-
-fn draw_popup(view_scale: Point, view_offset: Point, p: &PopupPlaced) {
+fn draw_popup(view_scale: Coord, view_offset: Coord, p: &PopupPlaced) {
+	let pos = p.pos;
 
 	let has_box = p.popup_type != PopupType::Noise && p.popup_type != PopupType::Damage;
 
-/*
 	// Draw background and border.
 
-	let mut text_x = p.pos.0;
-	let mut text_y = p.pos.1 + p.size.1;
+    /*
+	let mut text_x = pos.0;
+	let mut text_y = pos.1 + p.size.1;
 
 	if has_box {
 		text_x += 1;
@@ -113,10 +103,10 @@ fn draw_popup(view_scale: Point, view_offset: Point, p: &PopupPlaced) {
 
 		let sx = p.size.0;
 		let sy = p.size.1;
-		let x0 = p.pos.0;
-		let x1 = p.pos.0 + sx - 1;
-		let y0 = p.pos.1;
-		let y1 = p.pos.1 + sy - 1;
+		let x0 = pos.0;
+		let x1 = pos.0 + sx - 1;
+		let y0 = pos.1;
+		let y1 = pos.1 + sy - 1;
 
 		viewport.put_char(x0, y0, edge_attr, 228);
 		viewport.put_char(x1, y0, edge_attr, 229);
@@ -136,12 +126,12 @@ fn draw_popup(view_scale: Point, view_offset: Point, p: &PopupPlaced) {
 		fill_rect(viewport, x1, y0 + 1, 1, sy-2, edge_attr, 225);
 		fill_rect(viewport, x0 + 1, y0 + 1, sx - 2, sy - 2, edge_attr, 0x20);
 	}
-*/
+    */
 
 	// Draw the text.
 
-//	let text_pos = viewport.to_screen(Point{ x: text_x, y: text_y });
-	let text_pos = coord_add(view_offset, coord_mul_components(view_scale, p.pos));
+//	let text_pos = viewport.to_screen(Coord(text_x, text_y));
+	let text_pos = view_offset + view_scale.mul_components(pos);
 
 	let x_start = text_pos.0;
 	let y_start = text_pos.1 - (LINE_HEIGHT + p.offset.1) + if has_box {0} else {-16};
@@ -157,15 +147,15 @@ fn draw_popup(view_scale: Point, view_offset: Point, p: &PopupPlaced) {
 type Score = (i32, f32);
 
 fn compute_score(
-    view_min: Point,
-    view_max: Point,
-    origin: Point,
-    dir: Point,
-    pos: Point,
-    size: Point
+    view_min: Coord,
+    view_max: Coord,
+    origin: Coord,
+    dir: Coord,
+    pos: Coord,
+    size: Coord
 ) -> Score {
     let mut box_min = pos;
-    let mut box_max = coord_add(pos, size);
+    let mut box_max = pos + size;
     let mut offscreen_area = 0;
 
     if box_min.0 < view_min.0 {
@@ -193,7 +183,7 @@ fn compute_score(
     (offscreen_area, dot)
 }
 
-fn size_and_offset(p: &Popup) -> (Point, Point) {
+fn size_and_offset(p: &Popup) -> (Coord, Coord) {
 
     // Very similar to get_horizontal_extents:
 
@@ -219,12 +209,12 @@ fn size_and_offset(p: &Popup) -> (Point, Point) {
 
     const TILE_SCREEN_SIZE: i32 = 16;// * g_worldScale; // This needs to get plumbed in; it allows rendering at different sizes
 
-    let size_internal = (
+    let size_internal = Coord(
         (width + TILE_SCREEN_SIZE - 1) / TILE_SCREEN_SIZE,
         (height + TILE_SCREEN_SIZE - 1) / TILE_SCREEN_SIZE
     );
 
-    let offset = (
+    let offset = Coord(
         (TILE_SCREEN_SIZE * size_internal.0 - width) / 2 - x_min,
         (TILE_SCREEN_SIZE * size_internal.1 - height) / 2
     );
@@ -234,17 +224,17 @@ fn size_and_offset(p: &Popup) -> (Point, Point) {
     let size = if p.popup_type == PopupType::Noise || p.popup_type == PopupType::Damage {
         size_internal
     } else {
-        coord_add(size_internal, (2, 2))
+        Coord(size_internal.0 + 2, size_internal.1 + 2)
     };
 
     (size, offset)
 }
 
-fn layout_single(view_min: Point, view_max: Point, focus: Point, p: &Popup) -> PopupPlaced {
+fn layout_single(view_min: Coord, view_max: Coord, focus: Coord, p: &Popup) -> PopupPlaced {
 
     let (size, offset) = size_and_offset(p);
 
-    let mut pos = (0, 0);
+    let mut pos = Coord(0, 0);
 
     if p.popup_type == PopupType::Narration {
         // Center narration.
@@ -255,7 +245,7 @@ fn layout_single(view_min: Point, view_max: Point, focus: Point, p: &Popup) -> P
         // from the focus, with a center position as close as possible to
         // the line between source and focus.
 
-        let mut dir = coord_subtract(p.world_origin, focus);
+        let mut dir = p.world_origin - focus;
         if dir.0 == 0 && dir.1 == 0 {
             dir.0 = 1;
         }
@@ -265,7 +255,7 @@ fn layout_single(view_min: Point, view_max: Point, focus: Point, p: &Popup) -> P
         // Generate positions along the top
 
         for x in 0..size.0 {
-            let pos_trial = coord_add(p.world_origin, (-x, 2));
+            let pos_trial = p.world_origin + Coord(-x, 2);
             let score = compute_score(view_min, view_max, p.world_origin, dir, pos_trial, size);
             if score < score_best {
                 score_best = score;
@@ -276,7 +266,7 @@ fn layout_single(view_min: Point, view_max: Point, focus: Point, p: &Popup) -> P
         // Generate positions along the bottom
 
         for x in 0..size.0 {
-            let pos_trial = coord_add(p.world_origin, (-x, -size.1));
+            let pos_trial = p.world_origin + Coord(-x, -size.1);
             let score = compute_score(view_min, view_max, p.world_origin, dir, pos_trial, size);
             if score < score_best {
                 score_best = score;
@@ -287,7 +277,7 @@ fn layout_single(view_min: Point, view_max: Point, focus: Point, p: &Popup) -> P
         // Generate positions along the sides
 
         for y in 0..size.1 {
-            let pos_trial = coord_add(p.world_origin, (-size.0, -y));
+            let pos_trial = p.world_origin + Coord(-size.0, -y);
             let score = compute_score(view_min, view_max, p.world_origin, dir, pos_trial, size);
             if score < score_best {
                 score_best = score;
@@ -296,7 +286,7 @@ fn layout_single(view_min: Point, view_max: Point, focus: Point, p: &Popup) -> P
         }
 
         for y in 0..size.1 {
-            let pos_trial = coord_add(p.world_origin, (1, -y));
+            let pos_trial = p.world_origin + Coord(1, -y);
             let score = compute_score(view_min, view_max, p.world_origin, dir, pos_trial, size);
             if score < score_best {
                 score_best = score;
@@ -315,7 +305,7 @@ fn layout_single(view_min: Point, view_max: Point, focus: Point, p: &Popup) -> P
     }
 }
 
-fn layout(view_min: Point, view_max: Point, focus: Point, popups: &[Popup]) -> Vec<PopupPlaced> {
+fn layout(view_min: Coord, view_max: Coord, focus: Coord, popups: &[Popup]) -> Vec<PopupPlaced> {
     popups.iter().map(|p| layout_single(view_min, view_max, focus, &p)).collect()
 }
 

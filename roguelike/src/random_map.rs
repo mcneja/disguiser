@@ -1,4 +1,5 @@
 use crate::cell_grid::*;
+use crate::coord::Coord;
 use rand::prelude::*;
 use std::cmp::min;
 use std::cmp::max;
@@ -24,15 +25,15 @@ struct Room
     pub room_type: RoomType,
     pub group: usize,
     pub depth: usize,
-    pub pos_min: Point,
-    pub pos_max: Point,
+    pub pos_min: Coord,
+    pub pos_max: Coord,
     pub edges: Vec<usize>,
 }
 
 struct Adjacency
 {
-    pub origin: Point,
-    pub dir: Point,
+    pub origin: Coord,
+    pub dir: Coord,
     pub length: i32,
     pub room_left: usize,
     pub room_right: usize,
@@ -95,7 +96,7 @@ fn generate_siheyuan(random: &mut Random, level: usize) -> Map {
         patrol_regions: Vec::new(),
         patrol_routes: Vec::new(),
         guards: Vec::new(),
-        pos_start: (0, 0),
+        pos_start: Coord(0, 0),
         total_loot: 0,
     };
 
@@ -478,7 +479,7 @@ fn create_exits(
     offset_x: &Array2D<i32>,
     offset_y: &Array2D<i32>,
     map: &mut Map
-) -> (Vec<Room>, Vec<Adjacency>, Point) {
+) -> (Vec<Room>, Vec<Adjacency>, Coord) {
     // Make a set of rooms.
 
     let rooms_x: usize = inside.extents()[0];
@@ -494,8 +495,8 @@ fn create_exits(
             room_type: RoomType::Exterior,
             group: 0,
             depth: 0,
-            pos_min: (0, 0), // not meaningful for this room
-            pos_max: (0, 0), // not meaningful for this room
+            pos_min: Coord(0, 0), // not meaningful for this room
+            pos_max: Coord(0, 0), // not meaningful for this room
             edges: Vec::new(),
         }
     );
@@ -511,8 +512,8 @@ fn create_exits(
                     room_type: if inside[[rx, ry]] {RoomType::Interior} else {RoomType::Courtyard},
                     group: group_index,
                     depth: 0,
-                    pos_min: (offset_x[[rx, ry]] + 1, offset_y[[rx, ry]] + 1),
-                    pos_max: (offset_x[[rx + 1, ry]], offset_y[[rx, ry + 1]]),
+                    pos_min: Coord(offset_x[[rx, ry]] + 1, offset_y[[rx, ry]] + 1),
+                    pos_max: Coord(offset_x[[rx + 1, ry]], offset_y[[rx, ry + 1]]),
                     edges: Vec::new(),
                 }
             );
@@ -580,8 +581,8 @@ fn compute_adjacencies
 
                 adjacencies.push(
                     Adjacency {
-                        origin: (x0 + 1, y),
-                        dir: (1, 0),
+                        origin: Coord(x0 + 1, y),
+                        dir: Coord(1, 0),
                         length: x1 - (x0 + 1),
                         room_left: room_index[[rx, ry]],
                         room_right: 0,
@@ -612,8 +613,8 @@ fn compute_adjacencies
 
                     adjacencies.push(
                         Adjacency {
-                            origin: (x0_upper + 1, y),
-                            dir: (1, 0),
+                            origin: Coord(x0_upper + 1, y),
+                            dir: Coord(1, 0),
                             length: x0_lower - (x0_upper + 1),
                             room_left: room_index[[rx, ry]],
                             room_right: room_index[[rx - 1, ry - 1]],
@@ -629,8 +630,8 @@ fn compute_adjacencies
 
                     adjacencies.push(
                         Adjacency {
-                            origin: (x0 + 1, y),
-                            dir: (1, 0),
+                            origin: Coord(x0 + 1, y),
+                            dir: Coord(1, 0),
                             length: x1 - (x0 + 1),
                             room_left: room_index[[rx, ry]],
                             room_right: room_index[[rx, ry - 1]],
@@ -646,8 +647,8 @@ fn compute_adjacencies
 
                     adjacencies.push(
                         Adjacency {
-                            origin: (x1_lower + 1, y),
-                            dir: (1, 0),
+                            origin: Coord(x1_lower + 1, y),
+                            dir: Coord(1, 0),
                             length: x1_upper - (x1_lower + 1),
                             room_left: room_index[[rx, ry]],
                             room_right: room_index[[rx + 1, ry - 1]],
@@ -676,8 +677,8 @@ fn compute_adjacencies
 
                 adjacencies.push(
                     Adjacency {
-                        origin: (x0 + 1, y),
-                        dir: (1, 0),
+                        origin: Coord(x0 + 1, y),
+                        dir: Coord(1, 0),
                         length: x1 - (x0 + 1),
                         room_left: 0,
                         room_right: room_index[[rx, ry - 1]],
@@ -706,8 +707,8 @@ fn compute_adjacencies
                     // Flip edge a1 to point the opposite direction
                     {
                         let a1 = &mut adjacencies[adj1];
-                        a1.origin = coord_add(a1.origin, coord_scale(a1.dir, a1.length - 1));
-                        a1.dir = coord_negate(a1.dir);
+                        a1.origin += a1.dir * (a1.length - 1);
+                        a1.dir = -a1.dir;
                         swap(&mut a1.room_left, &mut a1.room_right);
                     }
 
@@ -757,8 +758,8 @@ fn compute_adjacencies
 
                 adjacencies.push(
                     Adjacency {
-                        origin: (x, y0 + 1),
-                        dir: (0, 1),
+                        origin: Coord(x, y0 + 1),
+                        dir: Coord(0, 1),
                         length: y1 - (y0 + 1),
                         room_left: 0,
                         room_right: room_index[[rx, ry]],
@@ -789,8 +790,8 @@ fn compute_adjacencies
 
                     adjacencies.push(
                         Adjacency {
-                            origin: (x, y0_right + 1),
-                            dir: (0, 1),
+                            origin: Coord(x, y0_right + 1),
+                            dir: Coord(0, 1),
                             length: y0_left - (y0_right + 1),
                             room_left: room_index[[rx - 1, ry - 1]],
                             room_right: room_index[[rx, ry]],
@@ -806,8 +807,8 @@ fn compute_adjacencies
 
                     adjacencies.push(
                         Adjacency {
-                            origin: (x, y0 + 1),
-                            dir: (0, 1),
+                            origin: Coord(x, y0 + 1),
+                            dir: Coord(0, 1),
                             length: y1 - (y0 + 1),
                             room_left: room_index[[rx - 1, ry]],
                             room_right: room_index[[rx, ry]],
@@ -823,8 +824,8 @@ fn compute_adjacencies
 
                     adjacencies.push(
                         Adjacency {
-                            origin: (x, y1_left + 1),
-                            dir: (0, 1),
+                            origin: Coord(x, y1_left + 1),
+                            dir: Coord(0, 1),
                             length: y1_right - (y1_left + 1),
                             room_left: room_index[[rx - 1, ry + 1]],
                             room_right: room_index[[rx, ry]],
@@ -851,8 +852,8 @@ fn compute_adjacencies
                 let i = adjacencies.len();
                 adjacencies.push(
                     Adjacency {
-                        origin: (x, y0 + 1),
-                        dir: (0, 1),
+                        origin: Coord(x, y0 + 1),
+                        dir: Coord(0, 1),
                         length: y1 - (y0 + 1),
                         room_left: room_index[[rx - 1, ry]],
                         room_right: 0,
@@ -881,8 +882,8 @@ fn compute_adjacencies
                     {
                         // Flip edge a1 to point the opposite direction
                         let a1 = &mut adjacencies[adj1];
-                        a1.origin = coord_add(a1.origin, coord_scale(a1.dir, a1.length - 1));
-                        a1.dir = coord_negate(a1.dir);
+                        a1.origin += a1.dir * (a1.length - 1);
+                        a1.dir = -a1.dir;
                         swap(&mut a1.room_left, &mut a1.room_right);
                     }
                 }
@@ -942,7 +943,7 @@ fn get_edge_sets(random: &mut Random, adjacencies: &[Adjacency]) -> Vec<Vec<usiz
     edge_sets
 }
 
-fn connect_rooms(random: &mut Random, rooms: &mut [Room], adjacencies: &mut [Adjacency]) -> Point {
+fn connect_rooms(random: &mut Random, rooms: &mut [Room], adjacencies: &mut [Adjacency]) -> Coord {
 
     // Collect sets of edges that are mirrors of each other
 
@@ -1056,7 +1057,7 @@ fn connect_rooms(random: &mut Random, rooms: &mut [Room], adjacencies: &mut [Adj
 
     // Create the door to the surrounding exterior. It must be on the south side.
 
-    let mut pos_start = (0, 0);
+    let mut pos_start = Coord(0, 0);
 
     {
         let i = front_door_adjacency_index(rooms, adjacencies, &edge_sets);
@@ -1221,7 +1222,7 @@ fn render_walls(random: &mut Random, rooms: &[Room], adjacencies: &[Adjacency], 
         }
 
         for j in 0..adj.length {
-            let p = coord_add(adj.origin, coord_scale(adj.dir, j));
+            let p: Coord = adj.origin + adj.dir * j;
             map.cells[[p.0 as usize, p.1 as usize]].cell_type = CellType::GroundGrass;
         }
     }
@@ -1266,11 +1267,11 @@ fn render_walls(random: &mut Random, rooms: &[Room], adjacencies: &[Adjacency], 
                     let k = adj0.length / 2;
 
                     for a in &walls {
-                        let p = coord_add(a.origin, coord_scale(a.dir, k));
+                        let p = a.origin + a.dir * k;
 
                         let dir =
                             if rooms[a.room_right].room_type == RoomType::Exterior {
-                                coord_negate(a.dir)
+                                -a.dir
                             } else {
                                 a.dir
                             };
@@ -1286,15 +1287,15 @@ fn render_walls(random: &mut Random, rooms: &[Room], adjacencies: &[Adjacency], 
                     for a in &walls {
                         let dir =
                             if rooms[a.room_right].room_type == RoomType::Courtyard {
-                                coord_negate(a.dir)
+                                -a.dir
                             } else {
                                 a.dir
                             };
 
                         let window_type = ONE_WAY_WINDOW[(2 * dir.0 + dir.1 + 2) as usize];
 
-                        let p: Point = coord_add(a.origin, coord_scale(a.dir, k));
-                        let q: Point = coord_add(a.origin, coord_scale(a.dir, a.length - (k + 1)));
+                        let p: Coord = a.origin + a.dir * k;
+                        let q: Coord = a.origin + a.dir * (a.length - (k + 1));
 
                         map.cells[[p.0 as usize, p.1 as usize]].cell_type = window_type;
                         map.cells[[q.0 as usize, q.1 as usize]].cell_type = window_type;
@@ -1311,7 +1312,7 @@ fn render_walls(random: &mut Random, rooms: &[Room], adjacencies: &[Adjacency], 
                 continue;
             }
 
-            let p = coord_add(a.origin, coord_scale(a.dir, offset));
+            let p = a.origin + a.dir * offset;
 
             let orient_ns = a.dir.0 == 0;
 
@@ -1487,7 +1488,7 @@ fn try_place_chair(map: &mut Map, x: i32, y: i32) {
 fn place_item(map: &mut Map, x: i32, y: i32, item_kind: ItemKind) {
     map.items.push(
         Item {
-            pos: (x, y),
+            pos: Coord(x, y),
             kind: item_kind,
         }
     );
@@ -1539,8 +1540,8 @@ fn place_loot(random: &mut Random, rooms: &Vec<Room>, adjacencies: &[Adjacency],
 
     // Place a bit of extra loot.
 
-    let pos_min = (0, 0);
-    let pos_max = (map.cells.extents()[0] as i32, map.cells.extents()[1] as i32);
+    let pos_min = Coord(0, 0);
+    let pos_max = Coord(map.cells.extents()[0] as i32, map.cells.extents()[1] as i32);
     for _ in 0..(num_rooms / 4 + random.gen_range(0..4)) {
         try_place_loot(random, pos_min, pos_max, map);
     }
@@ -1560,13 +1561,13 @@ fn is_item_at_pos(map: &Map, x: i32, y: i32) -> bool {
     return false;
 }
 
-fn try_place_loot(random: &mut Random, pos_min: Point, pos_max: Point, map: &mut Map)
+fn try_place_loot(random: &mut Random, pos_min: Coord, pos_max: Coord, map: &mut Map)
 {
     let dx = pos_max.0 - pos_min.0;
     let dy = pos_max.1 - pos_min.1;
 
     for _ in 0..1000 {
-        let pos = (pos_min.0 + random.gen_range(0..dx), pos_min.1 + random.gen_range(0..dy));
+        let pos = Coord(pos_min.0 + random.gen_range(0..dx), pos_min.1 + random.gen_range(0..dy));
 
         let cell_type = map.cells[[pos.0 as usize, pos.1 as usize]].cell_type;
 
@@ -1681,14 +1682,14 @@ fn place_guards(random: &mut Random, level: usize, rooms: &Vec<Room>, map: &mut 
     }
 }
 
-fn generate_initial_guard_pos(random: &mut Random, map: &Map) -> Option<Point> {
+fn generate_initial_guard_pos(random: &mut Random, map: &Map) -> Option<Coord> {
     let size_x = map.cells.extents()[0] as i32;
     let size_y = map.cells.extents()[1] as i32;
     for _ in 0..1000 {
-        let pos = (random.gen_range(0..size_x), random.gen_range(0..size_y));
+        let pos = Coord(random.gen_range(0..size_x), random.gen_range(0..size_y));
 
-        let dpos = coord_subtract(map.pos_start, pos);
-        if coord_length_squared(dpos) < 64 {
+        let dpos = map.pos_start - pos;
+        if dpos.length_squared() < 64 {
             continue;
         }
 
@@ -1708,11 +1709,11 @@ fn generate_initial_guard_pos(random: &mut Random, map: &Map) -> Option<Point> {
     return None;
 }
 
-fn place_guard(random: &mut Random, map: &mut Map, pos: Point) {
+fn place_guard(random: &mut Random, map: &mut Map, pos: Coord) {
 
     let mut guard = Guard {
         pos: pos,
-        dir: (1, 0),
+        dir: Coord(1, 0),
         mode: GuardMode::Patrol,
         speaking: false,
         has_moved: false,
@@ -1839,7 +1840,7 @@ fn generate_patrol_routes(map: &mut Map, rooms: &[Room], adjacencies: &[Adjacenc
 
     for i_room in 0..rooms.len() {
         if include_room[i_room] {
-            room_patrol_region[i_room] = add_patrol_region(map, &rooms[i_room].pos_min, &rooms[i_room].pos_max);
+            room_patrol_region[i_room] = add_patrol_region(map, rooms[i_room].pos_min, rooms[i_room].pos_max);
         }
     }
 
@@ -1861,13 +1862,13 @@ fn generate_patrol_routes(map: &mut Map, rooms: &[Room], adjacencies: &[Adjacenc
     }
 }
 
-fn add_patrol_region(map: &mut Map, pos_min: &Point, pos_max: &Point) -> usize {
+fn add_patrol_region(map: &mut Map, pos_min: Coord, pos_max: Coord) -> usize {
     let i_patrol_region = map.patrol_regions.len();
 
     map.patrol_regions.push(
         Rect {
-            pos_min: *pos_min,
-            pos_max: *pos_max,
+            pos_min,
+            pos_max,
         }
     );
 

@@ -1,4 +1,5 @@
 use crate::color_preset;
+use crate::coord::Coord;
 use multiarray::Array2D;
 use rand::Rng;
 use std::cmp::max;
@@ -62,39 +63,10 @@ pub struct Cell {
 }
 
 pub type CellGrid = Array2D<Cell>;
-pub type Point = (i32, i32);
-
-pub fn coord_add(coord0: Point, coord1: Point) -> Point {
-    (coord0.0 + coord1.0, coord0.1 + coord1.1)
-}
-
-pub fn coord_subtract(coord0: Point, coord1: Point) -> Point {
-    (coord0.0 - coord1.0, coord0.1 - coord1.1)
-}
-
-pub fn coord_negate(coord: Point) -> Point {
-    (-coord.0, -coord.1)
-}
-
-pub fn coord_scale(coord: Point, scale: i32) -> Point {
-    (coord.0 * scale, coord.1 * scale)
-}
-
-pub fn coord_dot(coord0: Point, coord1: Point) -> i32 {
-    coord0.0 * coord1.0 + coord0.1 * coord1.1
-}
-
-pub fn coord_length_squared(coord: Point) -> i32 {
-    coord.0*coord.0 + coord.1*coord.1
-}
-
-pub fn coord_mul_components(coord0: Point, coord1: Point) -> Point {
-    (coord0.0 * coord1.0, coord0.1 * coord1.1)
-}
 
 pub struct Rect {
-    pub pos_min: Point,
-    pub pos_max: Point,
+    pub pos_min: Coord,
+    pub pos_max: Coord,
 }
 
 pub struct Map {
@@ -103,7 +75,7 @@ pub struct Map {
     pub patrol_routes: Vec<(usize, usize)>,
     pub items: Vec<Item>,
     pub guards: Vec<Guard>,
-    pub pos_start: Point,
+    pub pos_start: Coord,
     pub total_loot: usize,
 }
 
@@ -120,18 +92,18 @@ pub enum GuardMode
 }
 
 pub struct Guard {
-    pub pos: Point,
-    pub dir: Point,
+    pub pos: Coord,
+    pub dir: Coord,
     pub mode: GuardMode,
     pub speaking: bool,
     pub has_moved: bool,
     pub heard_thief: bool,
     pub hearing_guard: bool,
     pub heard_guard: bool,
-    pub heard_guard_pos: Point,
+    pub heard_guard_pos: Coord,
 
     // Chase
-    pub goal: Point,
+    pub goal: Coord,
     pub mode_timeout: usize,
 
     // Patrol
@@ -140,7 +112,7 @@ pub struct Guard {
 }
 
 pub struct Item {
-    pub pos: Point,
+    pub pos: Coord,
     pub kind: ItemKind,
 }
 
@@ -157,8 +129,8 @@ pub enum ItemKind {
 }
 
 pub struct Player {
-    pub pos: Point,
-    pub dir: Point,
+    pub pos: Coord,
+    pub dir: Coord,
     pub max_health: usize,
     pub health: usize,
     pub gold: usize,
@@ -270,11 +242,11 @@ pub fn guard_move_cost_for_item_kind(kind: ItemKind) -> usize {
     }
 }
 
-pub fn make_player(pos: &Point) -> Player {
+pub fn make_player(pos: Coord) -> Player {
     let health = 5;
     Player {
-        pos: *pos,
-        dir: (0, 0),
+        pos: pos,
+        dir: Coord(0, 0),
         max_health: health,
         health: health,
         gold: 0,
@@ -313,22 +285,22 @@ impl Player {
     }
 }
 
-const ADJACENT_MOVES: [(usize, Point); 8] = [
-    (2, (1, 0)),
-    (2, (-1, 0)),
-    (2, (0, 1)),
-    (2, (0, -1)),
-    (3, (-1, 1)),
-    (3, (1, -1)),
-    (3, (-1, 1)),
-    (3, (1, 1)),
+const ADJACENT_MOVES: [(usize, Coord); 8] = [
+    (2, Coord(1, 0)),
+    (2, Coord(-1, 0)),
+    (2, Coord(0, 1)),
+    (2, Coord(0, -1)),
+    (3, Coord(-1, -1)),
+    (3, Coord(1, -1)),
+    (3, Coord(-1, 1)),
+    (3, Coord(1, 1)),
 ];
 
-const SOUND_NEIGHBORS: [Point; 4] = [
-    (-1, 0),
-    (1, 0),
-    (0, -1),
-    (0, 1),
+const SOUND_NEIGHBORS: [Coord; 4] = [
+    Coord(-1, 0),
+    Coord(1, 0),
+    Coord(0, -1),
+    Coord(0, 1),
 ];
 
 struct PortalInfo {
@@ -367,7 +339,7 @@ fn allowed_direction(tile_type: CellType, dx: i32, dy: i32) -> bool {
 
 impl Map {
 
-pub fn collect_loot_at(&mut self, pos: Point) -> usize {
+pub fn collect_loot_at(&mut self, pos: Coord) -> usize {
     let mut gold = 0;
     self.items.retain(|item| if item.kind == ItemKind::Coin && item.pos == pos {gold += 1; false} else {true});
     gold
@@ -415,7 +387,7 @@ pub fn mark_all_unseen(&mut self) {
     }
 }
 
-pub fn recompute_visibility(&mut self, pos_viewer: Point) {
+pub fn recompute_visibility(&mut self, pos_viewer: Coord) {
     for portal in &PORTAL {
         self.compute_visibility
         (
@@ -548,7 +520,7 @@ fn guard_cell_cost(&self, x: usize, y: usize) -> usize {
     self.cells[[x, y]].move_cost
 }
 
-pub fn guard_move_cost(&self, pos_old: Point, pos_new: Point) -> usize {
+pub fn guard_move_cost(&self, pos_old: Coord, pos_new: Coord) -> usize {
     let cost = self.guard_cell_cost(pos_new.0 as usize, pos_new.1 as usize);
 
     if cost == INFINITE_COST {
@@ -567,7 +539,7 @@ pub fn guard_move_cost(&self, pos_old: Point, pos_new: Point) -> usize {
     cost
 }
 
-pub fn pos_blocked_by_guard(&self, pos: Point) -> bool {
+pub fn pos_blocked_by_guard(&self, pos: Coord) -> bool {
     for guard in &self.guards {
         if guard.pos == pos {
             return true;
@@ -577,12 +549,12 @@ pub fn pos_blocked_by_guard(&self, pos: Point) -> bool {
     false
 }
 
-pub fn closest_region(&self, pos: &Point) -> usize {
+pub fn closest_region(&self, pos: Coord) -> usize {
 
     #[derive(Copy, Clone, Eq, PartialEq)]
     struct State {
         dist: usize,
-        pos: Point,
+        pos: Coord,
     }
 
     impl Ord for State {
@@ -600,7 +572,7 @@ pub fn closest_region(&self, pos: &Point) -> usize {
     let mut heap = BinaryHeap::with_capacity(self.cells.extents()[0] * self.cells.extents()[1]);
     let mut dist_field: Array2D<usize> = Array2D::new([self.cells.extents()[0], self.cells.extents()[1]], INFINITE_COST);
 
-    heap.push(State{dist: 0, pos: *pos});
+    heap.push(State{dist: 0, pos: pos});
 
     let size_x = self.cells.extents()[0] as i32;
     let size_y = self.cells.extents()[1] as i32;
@@ -619,7 +591,7 @@ pub fn closest_region(&self, pos: &Point) -> usize {
         dist_field[p] = dist;
 
         for (move_dir_cost, dir) in &ADJACENT_MOVES {
-            let pos_new = coord_add(pos, *dir);
+            let pos_new = pos + *dir;
             if pos_new.0 < 0 || pos_new.1 < 0 || pos_new.0 >= size_x || pos_new.1 >= size_y {
                 continue;
             }
@@ -651,7 +623,7 @@ pub fn compute_distances_to_region(&self, i_region_goal: usize) -> Array2D<usize
 
     for x in region.pos_min.0 .. region.pos_max.0 {
         for y in region.pos_min.1 .. region.pos_max.1 {
-            let p = (x, y);
+            let p = Coord(x, y);
             goal.push((self.guard_cell_cost(x as usize, y as usize), p));
         }
     }
@@ -659,7 +631,7 @@ pub fn compute_distances_to_region(&self, i_region_goal: usize) -> Array2D<usize
     self.compute_distance_field(&goal)
 }
 
-pub fn compute_distances_to_position(&self, pos_goal: Point) -> Array2D<usize> {
+pub fn compute_distances_to_position(&self, pos_goal: Coord) -> Array2D<usize> {
     assert!(pos_goal.0 >= 0);
     assert!(pos_goal.1 >= 0);
     assert!(pos_goal.0 < self.cells.extents()[0] as i32);
@@ -668,12 +640,12 @@ pub fn compute_distances_to_position(&self, pos_goal: Point) -> Array2D<usize> {
     self.compute_distance_field(&[(0, pos_goal)])
 }
 
-pub fn compute_distance_field(&self, initial_distances: &[(usize, Point)]) -> Array2D<usize> {
+pub fn compute_distance_field(&self, initial_distances: &[(usize, Coord)]) -> Array2D<usize> {
 
     #[derive(Copy, Clone, Eq, PartialEq)]
     struct State {
         dist: usize,
-        pos: Point,
+        pos: Coord,
     }
 
     impl Ord for State {
@@ -707,7 +679,7 @@ pub fn compute_distance_field(&self, initial_distances: &[(usize, Point)]) -> Ar
         dist_field[p] = dist;
 
         for (move_dir_cost, dir) in &ADJACENT_MOVES {
-            let pos_new = coord_add(pos, *dir);
+            let pos_new = pos + *dir;
             if pos_new.0 < 0 || pos_new.1 < 0 || pos_new.0 >= size_x || pos_new.1 >= size_y {
                 continue;
             }
@@ -740,18 +712,18 @@ pub fn hides_player(&self, x: i32, y: i32) -> bool {
     self.cells[[x as usize, y as usize]].hides_player
 }
 
-pub fn find_guards_in_earshot(&mut self, emitter_pos: Point, radius: i32) -> Vec<&mut Guard> {
+pub fn find_guards_in_earshot(&mut self, emitter_pos: Coord, radius: i32) -> Vec<&mut Guard> {
     let mut visited: Array2D<bool> = Array2D::new([self.cells.extents()[0], self.cells.extents()[1]], false);
 
     // Flood-fill from the emitter position.
 
-    let mut points: VecDeque<Point> = VecDeque::new();
+    let mut points: VecDeque<Coord> = VecDeque::new();
     points.push_back(emitter_pos);
     visited[[emitter_pos.0 as usize, emitter_pos.1 as usize]] = true;
 
     while let Some(pos) = points.pop_front() {
         for dir in &SOUND_NEIGHBORS {
-            let new_pos = coord_add(pos, *dir);
+            let new_pos = pos + *dir;
 
             // Skip positions that are off the map.
 
@@ -768,8 +740,8 @@ pub fn find_guards_in_earshot(&mut self, emitter_pos: Point, radius: i32) -> Vec
 
             // Skip neighbors that are outside of the hearing radius.
 
-            let d = coord_subtract(new_pos, emitter_pos);
-            let d2 = coord_length_squared(d);
+            let d = new_pos - emitter_pos;
+            let d2 = d.length_squared();
             if d2 >= radius {
                 continue;
             }

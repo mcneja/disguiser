@@ -4,6 +4,7 @@ extern crate rand_pcg;
 
 mod cell_grid;
 mod color_preset;
+mod coord;
 mod fontdata;
 mod game;
 mod guard;

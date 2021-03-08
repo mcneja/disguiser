@@ -1,10 +1,11 @@
 use rand::{SeedableRng};
 
 use crate::color_preset;
+use crate::coord::Coord;
 use crate::fontdata;
 use crate::engine;
 use crate::speech_bubbles::{get_horizontal_extents, puts_proportional, new_popups, Popups};
-use crate::cell_grid::{CellGrid, CellType, GuardMode, ItemKind, Map, Player, Point, Random, coord_add, coord_length_squared, coord_subtract, make_player, tile_def};
+use crate::cell_grid::{CellGrid, CellType, GuardMode, ItemKind, Map, Player, Random, make_player, tile_def};
 use crate::guard::{Lines, guard_act_all, is_guard_at, new_lines};
 use crate::random_map;
 
@@ -28,7 +29,7 @@ pub fn new_game(seed: u64) -> Game {
 	let mut random = Random::seed_from_u64(seed);
 	let level = 0;
 	let mut map = random_map::generate_map(&mut random, level);
-	let player = make_player(&map.pos_start);
+	let player = make_player(map.pos_start);
 	let lines = new_lines();
 	let popups = new_popups();
 
@@ -50,7 +51,7 @@ fn restart_game(game: &mut Game) {
 	let see_all = game.player.see_all;
 	game.level = 0;
 	game.map = random_map::generate_map(&mut game.random, game.level);
-	game.player = make_player(&game.map.pos_start);
+	game.player = make_player(game.map.pos_start);
 	game.show_help = false;
 	game.popups = new_popups();
 	game.player.see_all = see_all;
@@ -138,8 +139,8 @@ pub fn on_draw(game: &Game, screen_size_x: i32, screen_size_y: i32) {
 		let visible = player.see_all || cell.seen || guard.speaking;
 
 		if !visible {
-			let dpos = coord_subtract(player.pos, guard.pos);
-			if coord_length_squared(dpos) > 36 {
+			let dpos = player.pos - guard.pos;
+			if dpos.length_squared() > 36 {
 				continue;
 			}
 		}
@@ -194,8 +195,8 @@ pub fn on_draw(game: &Game, screen_size_x: i32, screen_size_y: i32) {
 		if guard.region_prev != INVALID_REGION {
 
 			let region = &map.patrol_regions[guard.region_prev];
-			for x in region.pos_min.x .. region.pos_max.x {
-				for y in region.pos_min.y .. region.pos_max.y {
+			for x in region.pos_min.0 .. region.pos_max.0 {
+				for y in region.pos_min.1 .. region.pos_max.1 {
 					let pos = Vector::new(x as f32, ((map_size_y - 1) as i32 - y) as f32);
 					let pos_px = offset_px + TILE_SIZE.times(pos);
 					let color = Color {r:1.0, g:0.0, b:0.0, a:0.25};
@@ -208,8 +209,8 @@ pub fn on_draw(game: &Game, screen_size_x: i32, screen_size_y: i32) {
 		}
 		if guard.region_goal != INVALID_REGION {
 			let region = &map.patrol_regions[guard.region_goal];
-			for x in region.pos_min.x .. region.pos_max.x {
-				for y in region.pos_min.y .. region.pos_max.y {
+			for x in region.pos_min.0 .. region.pos_max.0 {
+				for y in region.pos_min.1 .. region.pos_max.1 {
 					let pos = Vector::new(x as f32, ((map_size_y - 1) as i32 - y) as f32);
 					let pos_px = offset_px + TILE_SIZE.times(pos);
 					let color = Color {r:0.0, g:1.0, b:0.0, a:0.25};
@@ -226,8 +227,8 @@ pub fn on_draw(game: &Game, screen_size_x: i32, screen_size_y: i32) {
 	game.popups.draw(
 		screen_size_x,
 		screen_size_y,
-		(TILE_SIZE, TILE_SIZE),
-		(offset_x, offset_y),
+		Coord(TILE_SIZE, TILE_SIZE),
+		Coord(offset_x, offset_y),
 		game.player.pos
 	);
 
@@ -276,14 +277,14 @@ fn move_player(game: &mut Game, mut dx: i32, mut dy: i32) {
 
     // Are we trying to exit the level?
 
-    let pos_new = (player.pos.0 + dx, player.pos.1 + dy);
+    let pos_new = player.pos + Coord(dx, dy);
 
     if !on_level(&game.map.cells, pos_new) && game.map.all_seen() && game.map.all_loot_collected() {
         game.level += 1;
         game.map = random_map::generate_map(&mut game.random, game.level);
 
         game.player.pos = game.map.pos_start;
-        game.player.dir = (0, 0);
+        game.player.dir = Coord(0, 0);
         game.player.gold = 0;
         game.player.noisy = false;
         game.player.damaged_last_turn = false;
@@ -297,17 +298,17 @@ fn move_player(game: &mut Game, mut dx: i32, mut dy: i32) {
     }
 
     if dx == 0 || dy == 0 {
-        if blocked(&game.map, &player.pos, &pos_new) {
+        if blocked(&game.map, player.pos, pos_new) {
             return;
         }
-    } else if blocked(&game.map, &player.pos, &pos_new) {
-        if halts_slide(&game.map, &pos_new) {
+    } else if blocked(&game.map, player.pos, pos_new) {
+        if halts_slide(&game.map, pos_new) {
             return;
         } else {
             // Attempting to move diagonally; may be able to slide along a wall.
 
-            let v_blocked = blocked(&game.map, &player.pos, &coord_add(player.pos, (dx, 0)));
-            let h_blocked = blocked(&game.map, &player.pos, &coord_add(player.pos, (0, dy)));
+            let v_blocked = blocked(&game.map, player.pos, player.pos + Coord(dx, 0));
+            let h_blocked = blocked(&game.map, player.pos, player.pos + Coord(0, dy));
 
             if v_blocked {
                 if h_blocked {
@@ -327,9 +328,9 @@ fn move_player(game: &mut Game, mut dx: i32, mut dy: i32) {
 
     pre_turn(game);
 
-    let dpos = (dx, dy);
+    let dpos = Coord(dx, dy);
     game.player.dir = dpos;
-    game.player.pos = coord_add(game.player.pos, dpos);
+    game.player.pos += dpos;
     game.player.gold += game.map.collect_loot_at(game.player.pos);
 
     // Generate movement noises.
@@ -356,7 +357,7 @@ fn make_noise(map: &mut Map, player: &mut Player, popups: &mut Popups, noise: &'
     }
 }
 
-fn halts_slide(map: &Map, pos: &Point) -> bool {
+fn halts_slide(map: &Map, pos: Coord) -> bool {
     if pos.0 < 0 || pos.0 >= map.cells.extents()[0] as i32 || pos.1 < 0 || pos.1 >= map.cells.extents()[1] as i32 {
         return false;
     }
@@ -373,14 +374,14 @@ fn pre_turn(game: &mut Game) {
     game.popups.clear();
     game.player.noisy = false;
     game.player.damaged_last_turn = false;
-    game.player.dir = (0, 0);
+    game.player.dir = Coord(0, 0);
 }
 
-const DIRS: [Point; 4] = [
-    (-1, 0),
-    (1, 0),
-    (0, -1),
-    (0, 1),
+const DIRS: [Coord; 4] = [
+    Coord(-1, 0),
+    Coord(1, 0),
+    Coord(0, -1),
+    Coord(0, 1),
 ];
 
 fn advance_time(game: &mut Game) {
@@ -401,25 +402,25 @@ fn advance_time(game: &mut Game) {
     }
 }
 
-fn update_map_visibility(map: &mut Map, pos_viewer: Point) {
+fn update_map_visibility(map: &mut Map, pos_viewer: Coord) {
     map.recompute_visibility(pos_viewer);
 
     for dir in &DIRS {
-        let pos = coord_add(pos_viewer, *dir);
-        if !blocked(map, &pos_viewer, &pos) {
+        let pos = pos_viewer + *dir;
+        if !blocked(map, pos_viewer, pos) {
             map.recompute_visibility(pos);
         }
     }
 }
 
-fn on_level(map: &CellGrid, pos: Point) -> bool {
+fn on_level(map: &CellGrid, pos: Coord) -> bool {
     let size_x = map.extents()[0] as i32;
     let size_y = map.extents()[1] as i32;
     pos.0 >= 0 && pos.1 >= 0 && pos.0 < size_x && pos.1 < size_y
 }
 
-fn blocked(map: &Map, pos_old: &Point, pos_new: &Point) -> bool {
-    if !on_level(&map.cells, *pos_new) {
+fn blocked(map: &Map, pos_old: Coord, pos_new: Coord) -> bool {
+    if !on_level(&map.cells, pos_new) {
         return true;
     }
 
@@ -493,23 +494,23 @@ fn on_key_down_game_mode(game: &mut Game, key: i32, ctrl_key_down: bool, shift_k
 	}
 }
 
-fn dir_from_key(key: i32, ctrl_key_down: bool, shift_key_down: bool) -> Option<Point> {
+fn dir_from_key(key: i32, ctrl_key_down: bool, shift_key_down: bool) -> Option<Coord> {
 	let vertical_offset =
 		if ctrl_key_down {-1} else {0} +
 		if shift_key_down {1} else {0};
 
 	match key {
-		engine::KEY_LEFT => Some((-1, vertical_offset)),
-		engine::KEY_UP | engine::KEY_NUMPAD8 | engine::KEY_K => Some((0, 1)),
-		engine::KEY_RIGHT => Some((1, vertical_offset)),
-		engine::KEY_DOWN | engine::KEY_NUMPAD2 | engine::KEY_J => Some((0, -1)),
-		engine::KEY_NUMPAD1 | engine::KEY_B => Some((-1, -1)),
-		engine::KEY_NUMPAD4 | engine::KEY_H => Some((-1, 0)),
-		engine::KEY_NUMPAD6 | engine::KEY_L => Some((1, 0)),
-		engine::KEY_NUMPAD3 | engine::KEY_N => Some((1, -1)),
-		engine::KEY_NUMPAD9 | engine::KEY_U => Some((1, 1)),
-		engine::KEY_NUMPAD7 | engine::KEY_Y => Some((-1, 1)),
-		engine::KEY_NUMPAD5 | engine::KEY_PERIOD => Some((0, 0)),
+		engine::KEY_LEFT => Some(Coord(-1, vertical_offset)),
+		engine::KEY_UP | engine::KEY_NUMPAD8 | engine::KEY_K => Some(Coord(0, 1)),
+		engine::KEY_RIGHT => Some(Coord(1, vertical_offset)),
+		engine::KEY_DOWN | engine::KEY_NUMPAD2 | engine::KEY_J => Some(Coord(0, -1)),
+		engine::KEY_NUMPAD1 | engine::KEY_B => Some(Coord(-1, -1)),
+		engine::KEY_NUMPAD4 | engine::KEY_H => Some(Coord(-1, 0)),
+		engine::KEY_NUMPAD6 | engine::KEY_L => Some(Coord(1, 0)),
+		engine::KEY_NUMPAD3 | engine::KEY_N => Some(Coord(1, -1)),
+		engine::KEY_NUMPAD9 | engine::KEY_U => Some(Coord(1, 1)),
+		engine::KEY_NUMPAD7 | engine::KEY_Y => Some(Coord(-1, 1)),
+		engine::KEY_NUMPAD5 | engine::KEY_PERIOD => Some(Coord(0, 0)),
 		_ => None
 	}
 }

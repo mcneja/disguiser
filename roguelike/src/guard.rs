@@ -1,4 +1,5 @@
 use crate::cell_grid::*;
+use crate::coord::Coord;
 use rand::prelude::*;
 use std::cmp::min;
 use std::cmp::max;
@@ -33,12 +34,12 @@ pub fn guard_act_all(random: &mut Random, popups: &mut Popups, lines: &mut Lines
     }
 }
 
-fn pos_next_best(map: &Map, distance_field: &Array2D<usize>, pos_from: Point) -> Point {
+fn pos_next_best(map: &Map, distance_field: &Array2D<usize>, pos_from: Coord) -> Coord {
     let mut cost_best = INFINITE_COST;
     let mut pos_best = pos_from;
 
-    let pos_min = (max(0, pos_from.0 - 1), max(0, pos_from.1 - 1));
-    let pos_max = (min(map.cells.extents()[0] as i32, pos_from.0 + 2), min(map.cells.extents()[1] as i32, pos_from.1 + 2));
+    let pos_min = Coord(max(0, pos_from.0 - 1), max(0, pos_from.1 - 1));
+    let pos_max = Coord(min(map.cells.extents()[0] as i32, pos_from.0 + 2), min(map.cells.extents()[1] as i32, pos_from.1 + 2));
 
     for x in pos_min.0 .. pos_max.0 {
         for y in pos_min.1 .. pos_max.1 {
@@ -47,7 +48,7 @@ fn pos_next_best(map: &Map, distance_field: &Array2D<usize>, pos_from: Point) ->
                 continue;
             }
 
-            let pos = (x, y);
+            let pos = Coord(x, y);
             if map.guard_move_cost(pos_from, pos) == INFINITE_COST {
                 continue;
             }
@@ -141,7 +142,7 @@ fn act(&mut self, random: &mut Random, popups: &mut Popups, lines: &mut Lines, p
         if self.mode == GuardMode::Patrol && !self.adjacent_to(player.pos) {
             self.mode = GuardMode::Look;
             self.mode_timeout = random.gen_range(2..6);
-            self.dir = update_dir(self.dir, coord_subtract(player.pos, self.pos));
+            self.dir = update_dir(self.dir, player.pos - self.pos);
         } else {
             self.mode = GuardMode::ChaseVisibleTarget;
         }
@@ -165,7 +166,7 @@ fn act(&mut self, random: &mut Random, popups: &mut Popups, lines: &mut Lines, p
             } else if self.mode == GuardMode::Patrol {
                 self.mode = GuardMode::Listen;
                 self.mode_timeout = random.gen_range(2..6);
-                self.dir = update_dir(self.dir, coord_subtract(player.pos, self.pos));
+                self.dir = update_dir(self.dir, player.pos - self.pos);
             } else {
                 self.mode = GuardMode::MoveToLastSound;
                 self.mode_timeout = random.gen_range(2..6);
@@ -189,7 +190,7 @@ fn act(&mut self, random: &mut Random, popups: &mut Popups, lines: &mut Lines, p
         },
         GuardMode::ChaseVisibleTarget => {
             if self.adjacent_to(player.pos) {
-                self.dir = update_dir(self.dir, coord_subtract(self.goal, self.pos));
+                self.dir = update_dir(self.dir, self.goal - self.pos);
                 if mode_prev == GuardMode::ChaseVisibleTarget {
                     if !player.damaged_last_turn {
                         popups.damage(self.pos, lines.damage.next());
@@ -227,7 +228,7 @@ fn act(&mut self, random: &mut Random, popups: &mut Popups, lines: &mut Lines, p
                 self.mode = GuardMode::ChaseVisibleTarget;
             }
 
-            self.dir = update_dir(self.dir, coord_subtract(player.pos, self.pos));
+            self.dir = update_dir(self.dir, player.pos - self.pos);
         } else if self.mode == GuardMode::ChaseVisibleTarget {
             self.mode = GuardMode::MoveToLastSighting;
             self.mode_timeout = 3;
@@ -289,8 +290,8 @@ pub fn overhead_icon(&self, map: &Map, player: &Player) -> Option<u32> {
 
     let visible = player.see_all || cell.seen || self.speaking;
     if !visible {
-        let dpos = coord_subtract(player.pos, self.pos);
-        if coord_length_squared(dpos) > 25 {
+        let dpos = player.pos - self.pos;
+        if dpos.length_squared() > 25 {
             return None;
         }
     }
@@ -299,8 +300,8 @@ pub fn overhead_icon(&self, map: &Map, player: &Player) -> Option<u32> {
 }
 
 fn say(&mut self, popups: &mut Popups, player: &Player, msg: &'static str) {
-    let d = coord_subtract(self.pos, player.pos);
-    let dist_squared = coord_length_squared(d);
+    let d = self.pos - player.pos;
+    let dist_squared = d.length_squared();
 
     if dist_squared < 200 || player.see_all {
         popups.guard_speech(self.pos, msg);
@@ -309,20 +310,20 @@ fn say(&mut self, popups: &mut Popups, player: &Player, msg: &'static str) {
     self.speaking = true;
 }
 
-fn adjacent_to(&self, pos: Point) -> bool {
-    let d = coord_subtract(pos, self.pos);
+fn adjacent_to(&self, pos: Coord) -> bool {
+    let d = pos - self.pos;
     d.0.abs() < 2 && d.1.abs() < 2
 }
 
 fn sees_thief(&self, map: &Map, player: &Player) -> bool {
-    let d = coord_subtract(player.pos, self.pos);
-    if coord_dot(self.dir, d) < 0 {
+    let d = player.pos - self.pos;
+    if self.dir.dot(d) < 0 {
         return false;
     }
 
     let player_is_lit = map.cells[[player.pos.0 as usize, player.pos.1 as usize]].lit;
 
-    let d2 = coord_length_squared(d);
+    let d2 = d.length_squared();
     if d2 >= self.sight_cutoff(player_is_lit) {
         return false;
     }
@@ -362,11 +363,11 @@ fn patrol_step(&mut self, map: &Map, player: &mut Player, random: &mut Random) {
     if bumped_thief {
         self.mode = GuardMode::ChaseVisibleTarget;
         self.goal = player.pos;
-        self.dir = update_dir(self.dir, coord_subtract(self.goal, self.pos));
+        self.dir = update_dir(self.dir, self.goal - self.pos);
     }
 }
 
-pub fn initial_dir(&self, map: &Map) -> Point
+pub fn initial_dir(&self, map: &Map) -> Coord
 {
     if self.region_goal == INVALID_REGION {
         return self.dir;
@@ -376,7 +377,7 @@ pub fn initial_dir(&self, map: &Map) -> Point
 
     let pos_next = pos_next_best(map, &distance_field, self.pos);
 
-    update_dir(self.dir, coord_subtract(pos_next, self.pos))
+    update_dir(self.dir, pos_next - self.pos)
 }
 
 fn move_toward_region(&mut self, map: &Map, player: &Player) -> bool {
@@ -392,7 +393,7 @@ fn move_toward_region(&mut self, map: &Map, player: &Player) -> bool {
         return true;
     }
 
-    self.dir = update_dir(self.dir, coord_subtract(pos_next, self.pos));
+    self.dir = update_dir(self.dir, pos_next - self.pos);
     self.pos = pos_next;
 
     false
@@ -406,7 +407,7 @@ fn move_toward_goal(&mut self, map: &Map, player: &Player) -> bool {
         return false;
     }
 
-    self.dir = update_dir(self.dir, coord_subtract(pos_next, self.pos));
+    self.dir = update_dir(self.dir, pos_next - self.pos);
 
     if player.pos == pos_next {
         return false;
@@ -424,7 +425,7 @@ pub fn setup_goal_region(&mut self, random: &mut Random, map: &Map) {
     }
 
     if region_cur == INVALID_REGION {
-        self.region_goal = map.closest_region(&self.pos);
+        self.region_goal = map.closest_region(self.pos);
     } else {
         self.region_goal = map.random_neighbor_region(random, region_cur, self.region_prev);
         self.region_prev = region_cur;
@@ -433,24 +434,24 @@ pub fn setup_goal_region(&mut self, random: &mut Random, map: &Map) {
 
 }
 
-fn update_dir(dir_forward: Point, dir_aim: Point) -> Point {
-    let dir_left = (-dir_forward.1, dir_forward.0);
+fn update_dir(dir_forward: Coord, dir_aim: Coord) -> Coord {
+    let dir_left = Coord(-dir_forward.1, dir_forward.0);
 
-    let dot_forward = coord_dot(dir_forward, dir_aim);
-    let dot_left = coord_dot(dir_left, dir_aim);
+    let dot_forward = dir_forward.dot(dir_aim);
+    let dot_left = dir_left.dot(dir_aim);
 
     if dot_forward.abs() > dot_left.abs() {
-        if dot_forward >= 0 {dir_forward} else {coord_negate(dir_forward)}
+        if dot_forward >= 0 {dir_forward} else {-dir_forward}
     } else if dot_left.abs() > dot_forward.abs() {
-        if dot_left >= 0 {dir_left} else {coord_negate(dir_left)}
+        if dot_left >= 0 {dir_left} else {-dir_left}
     } else if dot_forward > 0 {
         dir_forward
     } else {
-        if dot_left >= 0 {dir_left} else {coord_negate(dir_left)}
+        if dot_left >= 0 {dir_left} else {-dir_left}
     }
 }
 
-fn line_of_sight(map: &Map, from: Point, to: Point) -> bool {
+fn line_of_sight(map: &Map, from: Coord, to: Coord) -> bool {
     let mut x = from.0;
     let mut y = from.1;
 
