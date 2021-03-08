@@ -657,7 +657,7 @@ fn draw_top_status_bar(screen_size_x: i32, screen_size_y: i32, game: &Game) {
 static HELP_MESSAGES: &[&str] = &[
 
 // Page 1
-"ThiefRL 2 (Web version: 2021 March 7)
+"ThiefRL 2 (Web version: 2021 March 8)
 
 Press right arrow for hints, or ? to toggle this help
 
