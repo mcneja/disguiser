@@ -116,7 +116,7 @@ const keymap = {
 	Numpad7: 103,
 	Numpad8: 104,
 	Numpad9: 105,
-	Decimal: 110,
+	Period: 190,
 	Slash: 191,
 };
 
@@ -218,7 +218,7 @@ function initGlResources(gl, textureImages) {
 
 	gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 	gl.enable(gl.BLEND);
-	gl.clearColor(0.65, 0.65, 0.65, 1.0);
+	gl.clearColor(0, 0, 0, 1.0);
 
 	gl.bindBuffer(gl.ARRAY_BUFFER, glResources.buffers.position);
 	gl.vertexAttribPointer(glResources.attribLocations.vertexPosition, 4, gl.FLOAT, false, 0, 0);

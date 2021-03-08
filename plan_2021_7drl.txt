@@ -31,9 +31,15 @@ New mechanics:
 
 == To Do ==
 
- [ ] Port over the Quicksilver version of ThiefRL
+ [ ] Overhaul the text rendering so everything's aligned correctly
+ [ ] Fix speech bubbles
+ [ ] Implement guard communication
+ [ ] Fix the extremely ugly cell grid access (having to cast to usize all the time)
+ [ ] Put back in a Point class?
+ [ ] Support resizable canvas and reactive layout for the web page, for small screens
  [ ] Figure out how to host this
 
+ [X] Port over the Quicksilver version of ThiefRL
  [X] Break up lib.rs into an interface module and the game itself
  [X] Get texture switching working
 

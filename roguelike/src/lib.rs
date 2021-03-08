@@ -1,8 +1,14 @@
+extern crate multiarray;
 extern crate rand;
 extern crate rand_pcg;
 
+mod cell_grid;
+mod color_preset;
 mod fontdata;
 mod game;
+mod guard;
+mod random_map;
+mod speech_bubbles;
 
 // Global game state (not thread-safe, but this program is single-threaded)
 
@@ -94,8 +100,7 @@ mod engine {
 	pub const KEY_NUMPAD8: i32 = 104;
 	pub const KEY_NUMPAD9: i32 = 105;
 
-	pub const KEY_DECIMAL: i32 = 110;
-
+	pub const KEY_PERIOD: i32 = 190;
 	pub const KEY_SLASH: i32 = 191;
 
 	// TODO: Create an object that contains draw_rect() and draw_tile(); pass it to on_draw()

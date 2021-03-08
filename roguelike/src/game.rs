@@ -1,113 +1,456 @@
-use rand::{Rng, SeedableRng};
-use std::collections::HashSet;
-use std::iter::FromIterator;
-use std::cmp::min;
-use std::cmp::max;
+use rand::{SeedableRng};
 
+use crate::color_preset;
 use crate::fontdata;
 use crate::engine;
-
-type Random = rand_pcg::Pcg32;
-
-const WORLD_SIZE_X: i32 = 55;
-const WORLD_SIZE_Y: i32 = 44;
+use crate::speech_bubbles::{get_horizontal_extents, puts_proportional, new_popups, Popups};
+use crate::cell_grid::{CellGrid, CellType, GuardMode, ItemKind, Map, Player, Point, Random, coord_add, coord_length_squared, coord_subtract, make_player, tile_def};
+use crate::guard::{Lines, guard_act_all, is_guard_at, new_lines};
+use crate::random_map;
 
 const BAR_HEIGHT: i32 = fontdata::LINE_HEIGHT + 2;
 const BAR_BACKGROUND_COLOR: u32 = 0xff101010;
 
 const TILE_SIZE: i32 = 16;
 
-type Coord = (i32, i32);
-
 pub struct Game {
-	size_x: i32,
-	size_y: i32,
-	player: Player,
-	trees: Vec<Coord>,
-	map: Map,
+    random: Random,
     level: usize,
-	game_over: bool,
-	finished_level: bool,
+    map: Map,
+    lines: Lines,
+    popups: Popups,
+    player: Player,
 	show_help: bool,
 	help_page: usize,
 }
 
-struct Player {
-    pos: Coord,
-    max_health: usize,
-    health: usize,
-    gold: usize,
-    turns_remaining_underwater: usize,
-}
-
-struct Map {
-    total_loot: usize,
-}
-
 pub fn new_game(seed: u64) -> Game {
 	let mut random = Random::seed_from_u64(seed);
+	let level = 0;
+	let mut map = random_map::generate_map(&mut random, level);
+	let player = make_player(&map.pos_start);
+	let lines = new_lines();
+	let popups = new_popups();
+
+	update_map_visibility(&mut map, player.pos);
+
 	Game {
-		size_x: WORLD_SIZE_X,
-		size_y: WORLD_SIZE_Y,
-		player: Player {
-			pos: (WORLD_SIZE_X / 2, WORLD_SIZE_Y / 2),
-			max_health: 5,
-			health: 5,
-			gold: 0,
-			turns_remaining_underwater: 0,
-		},
-		trees: make_trees(100, WORLD_SIZE_X, WORLD_SIZE_Y, &mut random),
-		map: Map {
-			total_loot: 1,
-		},
-		level: 0,
-		game_over: false,
-		finished_level: false,
+		random,
+		level,
+		lines,
+		popups,
+		map,
+		player,
 		show_help: false,
 		help_page: 0,
 	}
 }
 
-fn make_trees(max_trees: usize, size_x: i32, size_y: i32, random: &mut Random) -> Vec<Coord> {
-	let mut coord_set: HashSet<Coord> = HashSet::with_capacity(max_trees);
-	for _ in 0..max_trees {
-		let coord = (random.gen_range(0..size_x), random.gen_range(0..size_y));
-		coord_set.insert(coord);
-	}
-	Vec::from_iter(coord_set)
+fn restart_game(game: &mut Game) {
+	let see_all = game.player.see_all;
+	game.level = 0;
+	game.map = random_map::generate_map(&mut game.random, game.level);
+	game.player = make_player(&game.map.pos_start);
+	game.show_help = false;
+	game.popups = new_popups();
+	game.player.see_all = see_all;
+
+	update_map_visibility(&mut game.map, game.player.pos);
 }
 
 pub fn on_draw(game: &Game, screen_size_x: i32, screen_size_y: i32) {
-	const GREEN: u32 = 0xff00ae00;
-	const GRAY: u32 = 0xffa8a8a8;
+	let map = &game.map;
+	let items = &game.map.items;
+	let player = &game.player;
+	let guards = &game.map.guards;
 
-	let offset_x = (screen_size_x - game.size_x * TILE_SIZE) / 2;
-	let offset_y = (screen_size_y - game.size_y * TILE_SIZE) / 2;
+	let map_size_x = map.cells.extents()[0];
+	let map_size_y = map.cells.extents()[1];
 
-	let put_tile = |tile_index, world_x, world_y, color| {
+	let map_screen_size_x = (map_size_x as i32) * TILE_SIZE;
+	let map_screen_size_y = (map_size_y as i32) * TILE_SIZE;
+
+	let offset_x = (screen_size_x - map_screen_size_x) / 2;
+	let offset_y = (screen_size_y - map_screen_size_y) / 2;
+
+	let put_tile = |tile_index: u32, world_x: i32, world_y: i32, color: u32| {
 		let dest_x = world_x * TILE_SIZE + offset_x;
 		let dest_y = world_y * TILE_SIZE + offset_y;
 		draw_tile_by_index(tile_index, dest_x, dest_y, color);
 	};
 
-	for y in 0..game.size_y {
-		for x in 0..game.size_x {
-			put_tile(132, x, y, GREEN); // grass
+	let put_offset_tile = |tile_index: u32, world_x: i32, world_y: i32, color: u32, add_x: i32, add_y: i32| {
+		let dest_x = world_x * TILE_SIZE + offset_x + add_x;
+		let dest_y = world_y * TILE_SIZE + offset_y + add_y;
+		draw_tile_by_index(tile_index, dest_x, dest_y, color);
+	};
+
+	for x in 0..map_size_x {
+		for y in 0..map_size_y {
+			let cell = &map.cells[[x, y]];
+			if !cell.seen && !player.see_all {
+				continue;
+			}
+			let tile = tile_def(cell.cell_type);
+			let color = if cell.lit || tile.ignores_lighting {tile.color} else {color_preset::DARK_BLUE};
+			put_tile(tile.glyph, x as i32, y as i32, color);
 		}
 	}
 
-	for (x, y) in &game.trees {
-		put_tile(144, *x, *y, GREEN);
+	for item in items {
+		let cell = &map.cells[[item.pos.0 as usize, item.pos.1 as usize]];
+		if !cell.seen && !player.see_all {
+			continue;
+		}
+		let glyph = glyph_for_item(item.kind);
+		let color = if cell.lit {color_for_item(item.kind)} else {color_preset::DARK_BLUE};
+		put_tile(glyph, item.pos.0, item.pos.1, color);
 	}
 
-	put_tile(208, game.player.pos.0, game.player.pos.1, GRAY);
+	{
+		let glyph = 208;
 
-	draw_top_status_bar(screen_size_x, screen_size_y, game);
-	draw_bottom_status_bar(screen_size_x, screen_size_y, game);
+		let lit = map.cells[[player.pos.0 as usize, player.pos.1 as usize]].lit;
+		let noisy = player.noisy;
+		let damaged = player.damaged_last_turn;
+		let hidden = player.hidden(map);
+
+		let color =
+			if damaged {0xff0000ff}
+			else if noisy {color_preset::LIGHT_CYAN}
+			else if hidden {0xd0101010}
+			else if lit {color_preset::LIGHT_GRAY}
+			else {color_preset::LIGHT_BLUE};
+
+		put_tile(glyph, player.pos.0, player.pos.1, color);
+	}
+
+	for guard in guards {
+		let glyph =
+			if guard.dir.1 > 0 {210}
+			else if guard.dir.1 < 0 {212}
+			else if guard.dir.0 > 0 {209}
+			else if guard.dir.0 < 0 {211}
+			else {212};
+
+		let cell = &map.cells[[guard.pos.0 as usize, guard.pos.1 as usize]];
+		
+		let visible = player.see_all || cell.seen || guard.speaking;
+
+		if !visible {
+			let dpos = coord_subtract(player.pos, guard.pos);
+			if coord_length_squared(dpos) > 36 {
+				continue;
+			}
+		}
+
+		let color =
+			if !visible {
+				color_preset::DARK_GRAY
+			} else if guard.mode == GuardMode::Patrol && !guard.speaking && !cell.lit {
+				color_preset::DARK_BLUE
+			} else {
+				color_preset::LIGHT_MAGENTA
+			};
+
+		put_tile(glyph, guard.pos.0, guard.pos.1, color);
+	}
+
+	for guard in guards {
+		if let Some(glyph) = guard.overhead_icon(map, player) {
+			put_offset_tile(glyph, guard.pos.0, guard.pos.1, color_preset::LIGHT_YELLOW, 0, 10);
+		}
+	}
+
+/*
+	if let Some(guard) = guards.first() {
+		if guard.region_goal != INVALID_REGION {
+			let distance_field = map.compute_distances_to_region(guard.region_goal);
+			for x in 0..map_size_x {
+				for y in 0..map_size_y {
+					let pos = Vector::new(x as f32, ((map_size_y - 1) - y) as f32);
+					let d = distance_field[[x, y]];
+					if d == 0 || d == INFINITE_COST {
+						continue;
+					}
+					let digit = (d % 10) + 48;
+					let band = d / 10;
+					let image = &tileset[digit];
+					let pos_px = offset_px + TILE_SIZE.times(pos);
+					let color = if band == 0 {color_preset::WHITE} else if band == 1 {color_preset::LIGHT_YELLOW} else {color_preset::DARK_GRAY};
+					window.draw(
+						&Rectangle::new(pos_px, image.area().size()),
+						Blended(&image, color),
+					)
+				}
+			}
+		}
+	}
+*/
+
+/*
+	if let Some(guard) = guards.first() {
+		let image = &tileset[255];
+		if guard.region_prev != INVALID_REGION {
+
+			let region = &map.patrol_regions[guard.region_prev];
+			for x in region.pos_min.x .. region.pos_max.x {
+				for y in region.pos_min.y .. region.pos_max.y {
+					let pos = Vector::new(x as f32, ((map_size_y - 1) as i32 - y) as f32);
+					let pos_px = offset_px + TILE_SIZE.times(pos);
+					let color = Color {r:1.0, g:0.0, b:0.0, a:0.25};
+					window.draw(
+						&Rectangle::new(pos_px, image.area().size()),
+						Blended(&image, color),
+					)
+				}
+			}
+		}
+		if guard.region_goal != INVALID_REGION {
+			let region = &map.patrol_regions[guard.region_goal];
+			for x in region.pos_min.x .. region.pos_max.x {
+				for y in region.pos_min.y .. region.pos_max.y {
+					let pos = Vector::new(x as f32, ((map_size_y - 1) as i32 - y) as f32);
+					let pos_px = offset_px + TILE_SIZE.times(pos);
+					let color = Color {r:0.0, g:1.0, b:0.0, a:0.25};
+					window.draw(
+						&Rectangle::new(pos_px, image.area().size()),
+						Blended(&image, color),
+					)
+				}
+			}
+		}
+	}
+*/
+
+	game.popups.draw(
+		screen_size_x,
+		screen_size_y,
+		(TILE_SIZE, TILE_SIZE),
+		(offset_x, offset_y),
+		game.player.pos
+	);
 
 	if game.show_help {
 		draw_help(screen_size_x, screen_size_y, game.help_page);
 	}
+
+	draw_top_status_bar(screen_size_x, screen_size_y, game);
+	draw_bottom_status_bar(screen_size_x, screen_size_y, game);
+}
+
+fn glyph_for_item(kind: ItemKind) -> u32 {
+    match kind {
+        ItemKind::Chair => 148,
+        ItemKind::Table => 146,
+        ItemKind::Bush => 144,
+        ItemKind::Coin => 158,
+        ItemKind::DoorNS => 169,
+        ItemKind::DoorEW => 167,
+        ItemKind::PortcullisNS => 194,
+        ItemKind::PortcullisEW => 194,
+    }
+}
+
+fn color_for_item(kind: ItemKind) -> u32 {
+    match kind {
+        ItemKind::Chair => color_preset::DARK_BROWN,
+        ItemKind::Table => color_preset::DARK_BROWN,
+        ItemKind::Bush => color_preset::DARK_GREEN,
+        ItemKind::Coin => color_preset::LIGHT_YELLOW,
+        ItemKind::DoorNS => color_preset::DARK_BROWN,
+        ItemKind::DoorEW => color_preset::DARK_BROWN,
+        ItemKind::PortcullisNS => color_preset::LIGHT_GRAY,
+        ItemKind::PortcullisEW => color_preset::LIGHT_GRAY,
+    }
+}
+
+fn move_player(game: &mut Game, mut dx: i32, mut dy: i32) {
+    let player = &mut game.player;
+
+    // Can't move if you're dead.
+
+    if player.health == 0 {
+        return;
+    }
+
+    // Are we trying to exit the level?
+
+    let pos_new = (player.pos.0 + dx, player.pos.1 + dy);
+
+    if !on_level(&game.map.cells, pos_new) && game.map.all_seen() && game.map.all_loot_collected() {
+        game.level += 1;
+        game.map = random_map::generate_map(&mut game.random, game.level);
+
+        game.player.pos = game.map.pos_start;
+        game.player.dir = (0, 0);
+        game.player.gold = 0;
+        game.player.noisy = false;
+        game.player.damaged_last_turn = false;
+        game.player.finished_level = false;
+        game.player.turns_remaining_underwater = 0;
+
+        update_map_visibility(&mut game.map, game.player.pos);
+
+		engine::invalidate_screen();
+        return;
+    }
+
+    if dx == 0 || dy == 0 {
+        if blocked(&game.map, &player.pos, &pos_new) {
+            return;
+        }
+    } else if blocked(&game.map, &player.pos, &pos_new) {
+        if halts_slide(&game.map, &pos_new) {
+            return;
+        } else {
+            // Attempting to move diagonally; may be able to slide along a wall.
+
+            let v_blocked = blocked(&game.map, &player.pos, &coord_add(player.pos, (dx, 0)));
+            let h_blocked = blocked(&game.map, &player.pos, &coord_add(player.pos, (0, dy)));
+
+            if v_blocked {
+                if h_blocked {
+                    return;
+                }
+
+                dx = 0;
+            } else {
+                if !h_blocked {
+                    return;
+                }
+
+                dy = 0;
+            }
+        }
+    }
+
+    pre_turn(game);
+
+    let dpos = (dx, dy);
+    game.player.dir = dpos;
+    game.player.pos = coord_add(game.player.pos, dpos);
+    game.player.gold += game.map.collect_loot_at(game.player.pos);
+
+    // Generate movement noises.
+
+    let cell_type = game.map.cells[[game.player.pos.0 as usize, game.player.pos.1 as usize]].cell_type;
+
+    if cell_type == CellType::GroundWoodCreaky {
+        make_noise(&mut game.map, &mut game.player, &mut game.popups, "\u{ab}creak\u{bb}");
+    }
+
+    advance_time(game);
+
+	engine::invalidate_screen();
+}
+
+fn make_noise(map: &mut Map, player: &mut Player, popups: &mut Popups, noise: &'static str) {
+    player.noisy = true;
+    popups.noise(player.pos, noise);
+
+    let guards = map.find_guards_in_earshot(player.pos, 75);
+
+    for guard in guards {
+        guard.hear_thief();
+    }
+}
+
+fn halts_slide(map: &Map, pos: &Point) -> bool {
+    if pos.0 < 0 || pos.0 >= map.cells.extents()[0] as i32 || pos.1 < 0 || pos.1 >= map.cells.extents()[1] as i32 {
+        return false;
+    }
+
+    if is_guard_at(map, pos.0, pos.1) {
+        return true;
+    }
+
+    false
+}
+
+fn pre_turn(game: &mut Game) {
+//  s_show_msgs = true;
+    game.popups.clear();
+    game.player.noisy = false;
+    game.player.damaged_last_turn = false;
+    game.player.dir = (0, 0);
+}
+
+const DIRS: [Point; 4] = [
+    (-1, 0),
+    (1, 0),
+    (0, -1),
+    (0, 1),
+];
+
+fn advance_time(game: &mut Game) {
+    if game.map.cells[[game.player.pos.0 as usize, game.player.pos.1 as usize]].cell_type == CellType::GroundWater {
+        if game.player.turns_remaining_underwater > 0 {
+            game.player.turns_remaining_underwater -= 1;
+        }
+    } else {
+        game.player.turns_remaining_underwater = 7;
+    }
+
+    guard_act_all(&mut game.random, &mut game.popups, &mut game.lines, &mut game.map, &mut game.player);
+
+    update_map_visibility(&mut game.map, game.player.pos);
+
+    if game.map.all_seen() && game.map.all_loot_collected() {
+        game.player.finished_level = true;
+    }
+}
+
+fn update_map_visibility(map: &mut Map, pos_viewer: Point) {
+    map.recompute_visibility(pos_viewer);
+
+    for dir in &DIRS {
+        let pos = coord_add(pos_viewer, *dir);
+        if !blocked(map, &pos_viewer, &pos) {
+            map.recompute_visibility(pos);
+        }
+    }
+}
+
+fn on_level(map: &CellGrid, pos: Point) -> bool {
+    let size_x = map.extents()[0] as i32;
+    let size_y = map.extents()[1] as i32;
+    pos.0 >= 0 && pos.1 >= 0 && pos.0 < size_x && pos.1 < size_y
+}
+
+fn blocked(map: &Map, pos_old: &Point, pos_new: &Point) -> bool {
+    if !on_level(&map.cells, *pos_new) {
+        return true;
+    }
+
+    let tile_type = map.cells[[pos_new.0 as usize, pos_new.1 as usize]].cell_type;
+    let tile = tile_def(tile_type);
+
+    if tile.blocks_player {
+        return true;
+    }
+
+    if tile_type == CellType::OneWayWindowE && pos_new.0 <= pos_old.0 {
+        return true;
+    }
+
+    if tile_type == CellType::OneWayWindowW && pos_new.0 >= pos_old.0 {
+        return true;
+    }
+
+    if tile_type == CellType::OneWayWindowN && pos_new.1 <= pos_old.1 {
+        return true;
+    }
+
+    if tile_type == CellType::OneWayWindowS && pos_new.1 >= pos_old.1 {
+        return true;
+    }
+
+    if is_guard_at(map, pos_new.0, pos_new.1) {
+        return true;
+    }
+
+    false
 }
 
 pub fn on_key_down(game: &mut Game, key: i32, ctrl_key_down: bool, shift_key_down: bool) {
@@ -124,22 +467,33 @@ fn on_key_down_game_mode(game: &mut Game, key: i32, ctrl_key_down: bool, shift_k
 	if key == engine::KEY_SLASH {
 		game.show_help = true;
 		engine::invalidate_screen();
-	} else if !game.game_over {
-		if let Some(dir) = dir_from_key(key, ctrl_key_down, shift_key_down) {
-			let new_position = (
-				max(0, min(game.size_x - 1, game.player.pos.0 + dir.0)),
-				max(0, min(game.size_y - 1, game.player.pos.1 + dir.1))
-			);
-		
-			if new_position != game.player.pos {
-				game.player.pos = new_position;
+	} else if let Some(dir) = dir_from_key(key, ctrl_key_down, shift_key_down) {
+		move_player(game, dir.0, dir.1);
+	} else if ctrl_key_down {
+		match key {
+			engine::KEY_A => {
+				game.player.see_all = !game.player.see_all;
 				engine::invalidate_screen();
-			}
+			},
+			engine::KEY_C => {
+				game.map.mark_all_unseen();
+				update_map_visibility(&mut game.map, game.player.pos);
+				engine::invalidate_screen();
+			},
+			engine::KEY_R => {
+				restart_game(game);
+				engine::invalidate_screen();
+			},
+			engine::KEY_S => {
+				game.map.mark_all_seen();
+				engine::invalidate_screen();
+			},
+			_ => {}
 		}
 	}
 }
 
-fn dir_from_key(key: i32, ctrl_key_down: bool, shift_key_down: bool) -> Option<Coord> {
+fn dir_from_key(key: i32, ctrl_key_down: bool, shift_key_down: bool) -> Option<Point> {
 	let vertical_offset =
 		if ctrl_key_down {-1} else {0} +
 		if shift_key_down {1} else {0};
@@ -155,7 +509,7 @@ fn dir_from_key(key: i32, ctrl_key_down: bool, shift_key_down: bool) -> Option<C
 		engine::KEY_NUMPAD3 | engine::KEY_N => Some((1, -1)),
 		engine::KEY_NUMPAD9 | engine::KEY_U => Some((1, 1)),
 		engine::KEY_NUMPAD7 | engine::KEY_Y => Some((-1, 1)),
-		engine::KEY_NUMPAD5 | engine::KEY_DECIMAL => Some((0, 0)),
+		engine::KEY_NUMPAD5 | engine::KEY_PERIOD => Some((0, 0)),
 		_ => None
 	}
 }
@@ -186,46 +540,6 @@ fn on_key_down_help_mode(game: &mut Game, key: i32, ctrl_key_down: bool, _shift_
 	}
 }
 
-// Text rendering stuff (temporarily here)
-
-fn glyph_lookup(c: char) -> Option<&'static fontdata::Glyph> {
-    let id = c as usize;
-    fontdata::GLYPH.iter().find(|&glyph| glyph.id == id)
-}
-
-fn puts_proportional(mut x: i32, mut y: i32, s: &str, color: u32) -> i32 {
-	let x_base = x;
-	const TEXTURE_INDEX: u32 = 1;
-
-    for c in s.chars() {
-        if c == '\n' {
-            y -= if x == x_base {fontdata::LINE_HEIGHT / 2} else {fontdata::LINE_HEIGHT};
-            x = x_base;
-        } else if let Some(glyph) = glyph_lookup(c) {
-			engine::draw_tile(x + glyph.x_offset, y + glyph.y_offset, glyph.width, glyph.height, color, TEXTURE_INDEX, glyph.x, glyph.y);
-            x += glyph.x_advance;
-        }
-    }
-
-    x
-}
-
-fn get_horizontal_extents(s: &str) -> (i32, i32) {
-    let mut x_min = std::i32::MAX;
-    let mut x_max = std::i32::MIN;
-    let mut x = 0;
-
-    for c in s.chars() {
-        if let Some(glyph) = glyph_lookup(c) {
-            x_min = min(x_min, x + glyph.x_offset);
-            x_max = max(x_max, x + glyph.x_offset + glyph.width);
-            x += glyph.x_advance;
-        }
-    }
-
-    (x_min, x_max)
-}
-
 // Tile-set drawing
 
 fn draw_tile_by_index(tile_index: u32, dest_x: i32, dest_y: i32, color: u32) {
@@ -241,7 +555,7 @@ fn draw_tile_by_index(tile_index: u32, dest_x: i32, dest_y: i32, color: u32) {
 fn draw_bottom_status_bar(screen_size_x: i32, _screen_size_y: i32, game: &Game) {
 	engine::draw_rect(0, 0, screen_size_x, BAR_HEIGHT, BAR_BACKGROUND_COLOR);
 
-    let y_base = 0;
+    let y_base = 7;
 
     const HEALTH_COLOR: u32 = 0xff0000a8;
     let mut x = 8;
@@ -250,17 +564,17 @@ fn draw_bottom_status_bar(screen_size_x: i32, _screen_size_y: i32, game: &Game) 
 
     const TILE_HEALTHY: u32 = 213;
     for _ in 0..game.player.health {
-		draw_tile_by_index(TILE_HEALTHY, x, y_base + 5, HEALTH_COLOR);
+		draw_tile_by_index(TILE_HEALTHY, x, y_base, HEALTH_COLOR);
         x += TILE_SIZE;
     }
 
     const TILE_UNHEALTHY: u32 = 7;
     for _ in game.player.health..game.player.max_health {
-		draw_tile_by_index(TILE_UNHEALTHY, x, y_base + 5, HEALTH_COLOR);
+		draw_tile_by_index(TILE_UNHEALTHY, x, y_base, HEALTH_COLOR);
         x += TILE_SIZE;
     }
 
-    let player_underwater = false; // game.map.cells[[game.player.pos.0 as usize, game.player.pos.1 as usize]].cell_type == CellType::GroundWater && game.player.turns_remaining_underwater > 0;
+    let player_underwater = game.map.cells[[game.player.pos.0 as usize, game.player.pos.1 as usize]].cell_type == CellType::GroundWater && game.player.turns_remaining_underwater > 0;
 
     if player_underwater {
         x = screen_size_x / 4 - 16;
@@ -270,24 +584,24 @@ fn draw_bottom_status_bar(screen_size_x: i32, _screen_size_y: i32, game: &Game) 
         const TILE_AIR: u32 = 214;
         const AIR_COLOR: u32 = 0xfffefe54;
         for _ in 0..game.player.turns_remaining_underwater - 1 {
-			draw_tile_by_index(TILE_AIR, x, y_base + 5, AIR_COLOR);
+			draw_tile_by_index(TILE_AIR, x, y_base, AIR_COLOR);
             x += TILE_SIZE;
         }
 
         const TILE_NO_AIR: u32 = 7;
         const NO_AIR_COLOR: u32 = 0xffa8a800;
         for _ in game.player.turns_remaining_underwater - 1 .. 5 {
-			draw_tile_by_index(TILE_NO_AIR, x, y_base + 5, NO_AIR_COLOR);
+			draw_tile_by_index(TILE_NO_AIR, x, y_base, NO_AIR_COLOR);
             x += TILE_SIZE;
         }
     }
 
     // Draw the tallies of what's been seen and collected.
 
-    let percent_seen: usize = 0; // game.map.percent_seen();
+    let percent_seen: usize = game.map.percent_seen();
 
     {
-        const COLOR: u32 = 0xff363636;
+        const COLOR: u32 = 0xffa0a0a0;
         let seen_msg = format!("Level {}: {}% Seen", game.level + 1, percent_seen);
         let (x_min, x_max) = get_horizontal_extents(&seen_msg);
         let x = (screen_size_x - (x_max - x_min)) / 2;
@@ -324,9 +638,9 @@ fn draw_top_status_bar(screen_size_x: i32, screen_size_y: i32, game: &Game) {
 		puts_proportional(8, y_base, "Press left/right arrow keys to view help, or Esc to close", COLOR);
     } else {
         let msg =
-            if game.game_over || game.player.health == 0 {
-                format!("You are dead! Press Ctrl+N for a new game or Ctrl+R to restart.")
-            } else if game.finished_level {
+            if game.player.health == 0 {
+                format!("You are dead! Press Ctrl+R for a new game.")
+            } else if game.player.finished_level {
                 format!("Level {} complete! Move off the edge of the map to advance to the next level.", game.level + 1)
             } else if game.level == 0 {
                 format!("Welcome to level {}. Collect the gold coins and reveal the whole mansion. (Press ? for help.)", game.level + 1)
