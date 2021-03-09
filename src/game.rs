@@ -1,4 +1,5 @@
 use rand::{SeedableRng};
+use std::cmp::{min, max};
 
 use crate::color_preset;
 use crate::coord::Coord;
@@ -71,21 +72,21 @@ pub fn on_draw(game: &Game, screen_size_x: i32, screen_size_y: i32) {
     let map_size_x = map.cells.extents()[0];
     let map_size_y = map.cells.extents()[1];
 
-    let map_screen_size_x = (map_size_x as i32) * TILE_SIZE;
-    let map_screen_size_y = (map_size_y as i32) * TILE_SIZE;
-
-    let offset_x = (screen_size_x - map_screen_size_x) / 2;
-    let offset_y = (screen_size_y - map_screen_size_y) / 2;
+    let view_offset = viewport_offset(
+        Coord(0, BAR_HEIGHT),
+        Coord(screen_size_x, screen_size_y - BAR_HEIGHT),
+        Coord(map_size_x as i32, map_size_y as i32),
+        player.pos);
 
     let put_tile = |tile_index: u32, world_x: i32, world_y: i32, color: u32| {
-        let dest_x = world_x * TILE_SIZE + offset_x;
-        let dest_y = world_y * TILE_SIZE + offset_y;
+        let dest_x = world_x * TILE_SIZE + view_offset.0;
+        let dest_y = world_y * TILE_SIZE + view_offset.1;
         draw_tile_by_index(tile_index, dest_x, dest_y, color);
     };
 
     let put_offset_tile = |tile_index: u32, world_x: i32, world_y: i32, color: u32, add_x: i32, add_y: i32| {
-        let dest_x = world_x * TILE_SIZE + offset_x + add_x;
-        let dest_y = world_y * TILE_SIZE + offset_y + add_y;
+        let dest_x = world_x * TILE_SIZE + view_offset.0 + add_x;
+        let dest_y = world_y * TILE_SIZE + view_offset.1 + add_y;
         draw_tile_by_index(tile_index, dest_x, dest_y, color);
     };
 
@@ -232,7 +233,7 @@ pub fn on_draw(game: &Game, screen_size_x: i32, screen_size_y: i32) {
             screen_size_x,
             screen_size_y,
             Coord(TILE_SIZE, TILE_SIZE),
-            Coord(offset_x, offset_y),
+            view_offset,
             game.player.pos
         );
     }
@@ -243,6 +244,28 @@ pub fn on_draw(game: &Game, screen_size_x: i32, screen_size_y: i32) {
 
     draw_top_status_bar(screen_size_x, screen_size_y, game);
     draw_bottom_status_bar(screen_size_x, screen_size_y, game);
+}
+
+fn viewport_offset(viewport_screen_min: Coord, viewport_screen_max: Coord, world_size: Coord, world_focus: Coord) -> Coord {
+    let viewport_screen_size = viewport_screen_max - viewport_screen_min;
+    let world_screen_size = Coord(TILE_SIZE, TILE_SIZE).mul_components(world_size);
+    let world_focus = Coord(TILE_SIZE, TILE_SIZE).mul_components(world_focus) + Coord(TILE_SIZE / 2, TILE_SIZE / 2);
+
+    let world_offset_x =
+        if world_screen_size.0 <= viewport_screen_size.0 {
+            (viewport_screen_size.0 - world_screen_size.0) / 2
+        } else {
+            min(0, max(viewport_screen_size.0 - world_screen_size.0, viewport_screen_size.0 / 2 - world_focus.0))
+        };
+
+    let world_offset_y =
+        if world_screen_size.1 <= viewport_screen_size.1 {
+            (viewport_screen_size.1 - world_screen_size.1) / 2
+        } else {
+            min(0, max(viewport_screen_size.1 - world_screen_size.1, viewport_screen_size.1 / 2 - world_focus.1))
+        };
+
+    viewport_screen_min + Coord(world_offset_x, world_offset_y)
 }
 
 fn glyph_for_item(kind: ItemKind) -> u32 {
