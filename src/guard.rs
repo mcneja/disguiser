@@ -7,6 +7,11 @@ use multiarray::Array2D;
 
 use crate::speech_bubbles::Popups;
 
+struct Shout {
+    pos_shouter: Coord, // where is the person shouting?
+    pos_target: Coord, // where are they reporting the player is?
+}
+
 pub fn is_guard_at(map: &Map, x: i32, y: i32) -> bool {
     for guard in &map.guards {
         if guard.pos.0 == x && guard.pos.1 == y {
@@ -27,10 +32,25 @@ pub fn guard_act_all(random: &mut Random, popups: &mut Popups, lines: &mut Lines
     // Update each guard for this turn.
 
     let mut guards = map.guards.split_off(0);
+    let mut shouts: Vec<Shout> = Vec::new();
 
     for mut guard in guards.drain(..) {
-        guard.act(random, popups, lines, player, map);
+        guard.act(random, popups, lines, player, map, &mut shouts);
         map.guards.push(guard);
+    }
+
+    // Process shouts
+
+    for shout in &shouts {
+        alert_nearby_guards(map, &shout);
+    }
+}
+
+fn alert_nearby_guards(map: &mut Map, shout: &Shout) {
+    for guard in map.find_guards_in_earshot(shout.pos_shouter, 150) {
+        if guard.pos != shout.pos_shouter {
+            guard.hear_guard(shout.pos_target);
+        }
     }
 }
 
@@ -129,7 +149,12 @@ pub fn hear_thief(&mut self) {
     self.heard_thief = true;
 }
 
-fn act(&mut self, random: &mut Random, popups: &mut Popups, lines: &mut Lines, player: &mut Player, map: &Map) {
+fn hear_guard(&mut self, pos_target: Coord) {
+    self.hearing_guard = true;
+    self.heard_guard_pos = pos_target;
+}
+
+fn act(&mut self, random: &mut Random, popups: &mut Popups, lines: &mut Lines, player: &mut Player, map: &Map, shouts: &mut Vec<Shout>) {
 
     let mode_prev = self.mode;
     let pos_prev = self.pos;
@@ -265,7 +290,7 @@ fn act(&mut self, random: &mut Random, popups: &mut Popups, lines: &mut Lines, p
             },
             GuardMode::ChaseVisibleTarget => {
                 if mode_prev != GuardMode::MoveToLastSighting {
-//                  self.alert_nearby_guards(map);
+                    shouts.push(Shout{pos_shouter: self.pos, pos_target: player.pos});
                     self.say(popups, player, lines.chase.next());
                 }
             },
