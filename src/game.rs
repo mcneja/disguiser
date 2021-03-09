@@ -21,6 +21,7 @@ pub struct Game {
     lines: Lines,
     popups: Popups,
     player: Player,
+    show_msgs: bool,
     show_help: bool,
     help_page: usize,
 }
@@ -42,6 +43,7 @@ pub fn new_game(seed: u64) -> Game {
         popups,
         map,
         player,
+        show_msgs: true,
         show_help: false,
         help_page: 0,
     }
@@ -52,6 +54,7 @@ fn restart_game(game: &mut Game) {
     game.level = 0;
     game.map = random_map::generate_map(&mut game.random, game.level);
     game.player = make_player(game.map.pos_start);
+    game.show_msgs = true;
     game.show_help = false;
     game.popups = new_popups();
     game.player.see_all = see_all;
@@ -224,13 +227,15 @@ pub fn on_draw(game: &Game, screen_size_x: i32, screen_size_y: i32) {
     }
 */
 
-    game.popups.draw(
-        screen_size_x,
-        screen_size_y,
-        Coord(TILE_SIZE, TILE_SIZE),
-        Coord(offset_x, offset_y),
-        game.player.pos
-    );
+    if game.show_msgs {
+        game.popups.draw(
+            screen_size_x,
+            screen_size_y,
+            Coord(TILE_SIZE, TILE_SIZE),
+            Coord(offset_x, offset_y),
+            game.player.pos
+        );
+    }
 
     if game.show_help {
         draw_help(screen_size_x, screen_size_y, game.help_page);
@@ -337,7 +342,7 @@ fn move_player(game: &mut Game, mut dx: i32, mut dy: i32) {
 
     let cell_type = game.map.cells[[game.player.pos.0 as usize, game.player.pos.1 as usize]].cell_type;
 
-    if cell_type == CellType::GroundWoodCreaky {
+    if dpos != Coord(0, 0) && cell_type == CellType::GroundWoodCreaky {
         make_noise(&mut game.map, &mut game.player, &mut game.popups, "\u{ab}creak\u{bb}");
     }
 
@@ -370,7 +375,7 @@ fn halts_slide(map: &Map, pos: Coord) -> bool {
 }
 
 fn pre_turn(game: &mut Game) {
-//  s_show_msgs = true;
+    game.show_msgs = true;
     game.popups.clear();
     game.player.noisy = false;
     game.player.damaged_last_turn = false;
@@ -467,6 +472,9 @@ pub fn on_key_down(game: &mut Game, key: i32, ctrl_key_down: bool, shift_key_dow
 fn on_key_down_game_mode(game: &mut Game, key: i32, ctrl_key_down: bool, shift_key_down: bool) {
     if key == engine::KEY_SLASH {
         game.show_help = true;
+        engine::invalidate_screen();
+    } else if key == engine::KEY_SPACE {
+        game.show_msgs = !game.show_msgs;
         engine::invalidate_screen();
     } else if let Some(dir) = dir_from_key(key, ctrl_key_down, shift_key_down) {
         move_player(game, dir.0, dir.1);
