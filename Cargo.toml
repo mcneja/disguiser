@@ -1,5 +1,5 @@
 [package]
-name = "roguelike"
+name = "thiefrl2_wasm"
 version = "0.1.0"
 authors = ["James McNeill <mcneja@gmail.com>"]
 

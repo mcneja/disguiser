@@ -27,7 +27,7 @@ function loadResourcesThenRun() {
 	Promise.all([
 		loadImage('tiles.png'),
 		loadImage('font.png'),
-		fetch('roguelike.wasm'),
+		fetch('game.wasm'),
 	]).then(([tileImage, fontImage, wasm]) => {
 		main([tileImage, fontImage], wasm);
 	});
