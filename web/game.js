@@ -272,8 +272,10 @@ function createElementBuffer(gl) {
 }
 
 function drawScreen(gl, glResources, drawFunc) {
+	resizeCanvasToDisplaySize(gl.canvas);
 	const screenX = gl.canvas.clientWidth;
 	const screenY = gl.canvas.clientHeight;
+	gl.viewport(0, 0, screenX, screenY);
 
 	projectionMatrix[0] = 2 / screenX;
 	projectionMatrix[5] = 2 / screenY;
@@ -285,6 +287,15 @@ function drawScreen(gl, glResources, drawFunc) {
 	drawFunc(screenX, screenY);
 
 	renderQuads(gl, glResources);
+}
+
+function resizeCanvasToDisplaySize(canvas) {
+	const displayWidth  = canvas.clientWidth;
+	const displayHeight = canvas.clientHeight;
+	if (canvas.width  !== displayWidth || canvas.height !== displayHeight) {
+		canvas.width  = displayWidth;
+		canvas.height = displayHeight;
+	}
 }
 
 function initShaderProgram(gl, vsSource, fsSource) {
