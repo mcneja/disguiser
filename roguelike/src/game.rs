@@ -21,223 +21,223 @@ pub struct Game {
     lines: Lines,
     popups: Popups,
     player: Player,
-	show_help: bool,
-	help_page: usize,
+    show_help: bool,
+    help_page: usize,
 }
 
 pub fn new_game(seed: u64) -> Game {
-	let mut random = Random::seed_from_u64(seed);
-	let level = 0;
-	let mut map = random_map::generate_map(&mut random, level);
-	let player = make_player(map.pos_start);
-	let lines = new_lines();
-	let popups = new_popups();
+    let mut random = Random::seed_from_u64(seed);
+    let level = 0;
+    let mut map = random_map::generate_map(&mut random, level);
+    let player = make_player(map.pos_start);
+    let lines = new_lines();
+    let popups = new_popups();
 
-	update_map_visibility(&mut map, player.pos);
+    update_map_visibility(&mut map, player.pos);
 
-	Game {
-		random,
-		level,
-		lines,
-		popups,
-		map,
-		player,
-		show_help: false,
-		help_page: 0,
-	}
+    Game {
+        random,
+        level,
+        lines,
+        popups,
+        map,
+        player,
+        show_help: false,
+        help_page: 0,
+    }
 }
 
 fn restart_game(game: &mut Game) {
-	let see_all = game.player.see_all;
-	game.level = 0;
-	game.map = random_map::generate_map(&mut game.random, game.level);
-	game.player = make_player(game.map.pos_start);
-	game.show_help = false;
-	game.popups = new_popups();
-	game.player.see_all = see_all;
+    let see_all = game.player.see_all;
+    game.level = 0;
+    game.map = random_map::generate_map(&mut game.random, game.level);
+    game.player = make_player(game.map.pos_start);
+    game.show_help = false;
+    game.popups = new_popups();
+    game.player.see_all = see_all;
 
-	update_map_visibility(&mut game.map, game.player.pos);
+    update_map_visibility(&mut game.map, game.player.pos);
 }
 
 pub fn on_draw(game: &Game, screen_size_x: i32, screen_size_y: i32) {
-	let map = &game.map;
-	let items = &game.map.items;
-	let player = &game.player;
-	let guards = &game.map.guards;
+    let map = &game.map;
+    let items = &game.map.items;
+    let player = &game.player;
+    let guards = &game.map.guards;
 
-	let map_size_x = map.cells.extents()[0];
-	let map_size_y = map.cells.extents()[1];
+    let map_size_x = map.cells.extents()[0];
+    let map_size_y = map.cells.extents()[1];
 
-	let map_screen_size_x = (map_size_x as i32) * TILE_SIZE;
-	let map_screen_size_y = (map_size_y as i32) * TILE_SIZE;
+    let map_screen_size_x = (map_size_x as i32) * TILE_SIZE;
+    let map_screen_size_y = (map_size_y as i32) * TILE_SIZE;
 
-	let offset_x = (screen_size_x - map_screen_size_x) / 2;
-	let offset_y = (screen_size_y - map_screen_size_y) / 2;
+    let offset_x = (screen_size_x - map_screen_size_x) / 2;
+    let offset_y = (screen_size_y - map_screen_size_y) / 2;
 
-	let put_tile = |tile_index: u32, world_x: i32, world_y: i32, color: u32| {
-		let dest_x = world_x * TILE_SIZE + offset_x;
-		let dest_y = world_y * TILE_SIZE + offset_y;
-		draw_tile_by_index(tile_index, dest_x, dest_y, color);
-	};
+    let put_tile = |tile_index: u32, world_x: i32, world_y: i32, color: u32| {
+        let dest_x = world_x * TILE_SIZE + offset_x;
+        let dest_y = world_y * TILE_SIZE + offset_y;
+        draw_tile_by_index(tile_index, dest_x, dest_y, color);
+    };
 
-	let put_offset_tile = |tile_index: u32, world_x: i32, world_y: i32, color: u32, add_x: i32, add_y: i32| {
-		let dest_x = world_x * TILE_SIZE + offset_x + add_x;
-		let dest_y = world_y * TILE_SIZE + offset_y + add_y;
-		draw_tile_by_index(tile_index, dest_x, dest_y, color);
-	};
+    let put_offset_tile = |tile_index: u32, world_x: i32, world_y: i32, color: u32, add_x: i32, add_y: i32| {
+        let dest_x = world_x * TILE_SIZE + offset_x + add_x;
+        let dest_y = world_y * TILE_SIZE + offset_y + add_y;
+        draw_tile_by_index(tile_index, dest_x, dest_y, color);
+    };
 
-	for x in 0..map_size_x {
-		for y in 0..map_size_y {
-			let cell = &map.cells[[x, y]];
-			if !cell.seen && !player.see_all {
-				continue;
-			}
-			let tile = tile_def(cell.cell_type);
-			let color = if cell.lit || tile.ignores_lighting {tile.color} else {color_preset::DARK_BLUE};
-			put_tile(tile.glyph, x as i32, y as i32, color);
-		}
-	}
+    for x in 0..map_size_x {
+        for y in 0..map_size_y {
+            let cell = &map.cells[[x, y]];
+            if !cell.seen && !player.see_all {
+                continue;
+            }
+            let tile = tile_def(cell.cell_type);
+            let color = if cell.lit || tile.ignores_lighting {tile.color} else {color_preset::DARK_BLUE};
+            put_tile(tile.glyph, x as i32, y as i32, color);
+        }
+    }
 
-	for item in items {
-		let cell = &map.cells[[item.pos.0 as usize, item.pos.1 as usize]];
-		if !cell.seen && !player.see_all {
-			continue;
-		}
-		let glyph = glyph_for_item(item.kind);
-		let color = if cell.lit {color_for_item(item.kind)} else {color_preset::DARK_BLUE};
-		put_tile(glyph, item.pos.0, item.pos.1, color);
-	}
+    for item in items {
+        let cell = &map.cells[[item.pos.0 as usize, item.pos.1 as usize]];
+        if !cell.seen && !player.see_all {
+            continue;
+        }
+        let glyph = glyph_for_item(item.kind);
+        let color = if cell.lit {color_for_item(item.kind)} else {color_preset::DARK_BLUE};
+        put_tile(glyph, item.pos.0, item.pos.1, color);
+    }
 
-	{
-		let glyph = 208;
+    {
+        let glyph = 208;
 
-		let lit = map.cells[[player.pos.0 as usize, player.pos.1 as usize]].lit;
-		let noisy = player.noisy;
-		let damaged = player.damaged_last_turn;
-		let hidden = player.hidden(map);
+        let lit = map.cells[[player.pos.0 as usize, player.pos.1 as usize]].lit;
+        let noisy = player.noisy;
+        let damaged = player.damaged_last_turn;
+        let hidden = player.hidden(map);
 
-		let color =
-			if damaged {0xff0000ff}
-			else if noisy {color_preset::LIGHT_CYAN}
-			else if hidden {0xd0101010}
-			else if lit {color_preset::LIGHT_GRAY}
-			else {color_preset::LIGHT_BLUE};
+        let color =
+            if damaged {0xff0000ff}
+            else if noisy {color_preset::LIGHT_CYAN}
+            else if hidden {0xd0101010}
+            else if lit {color_preset::LIGHT_GRAY}
+            else {color_preset::LIGHT_BLUE};
 
-		put_tile(glyph, player.pos.0, player.pos.1, color);
-	}
+        put_tile(glyph, player.pos.0, player.pos.1, color);
+    }
 
-	for guard in guards {
-		let glyph =
-			if guard.dir.1 > 0 {210}
-			else if guard.dir.1 < 0 {212}
-			else if guard.dir.0 > 0 {209}
-			else if guard.dir.0 < 0 {211}
-			else {212};
+    for guard in guards {
+        let glyph =
+            if guard.dir.1 > 0 {210}
+            else if guard.dir.1 < 0 {212}
+            else if guard.dir.0 > 0 {209}
+            else if guard.dir.0 < 0 {211}
+            else {212};
 
-		let cell = &map.cells[[guard.pos.0 as usize, guard.pos.1 as usize]];
-		
-		let visible = player.see_all || cell.seen || guard.speaking;
+        let cell = &map.cells[[guard.pos.0 as usize, guard.pos.1 as usize]];
+        
+        let visible = player.see_all || cell.seen || guard.speaking;
 
-		if !visible {
-			let dpos = player.pos - guard.pos;
-			if dpos.length_squared() > 36 {
-				continue;
-			}
-		}
+        if !visible {
+            let dpos = player.pos - guard.pos;
+            if dpos.length_squared() > 36 {
+                continue;
+            }
+        }
 
-		let color =
-			if !visible {
-				color_preset::DARK_GRAY
-			} else if guard.mode == GuardMode::Patrol && !guard.speaking && !cell.lit {
-				color_preset::DARK_BLUE
-			} else {
-				color_preset::LIGHT_MAGENTA
-			};
+        let color =
+            if !visible {
+                color_preset::DARK_GRAY
+            } else if guard.mode == GuardMode::Patrol && !guard.speaking && !cell.lit {
+                color_preset::DARK_BLUE
+            } else {
+                color_preset::LIGHT_MAGENTA
+            };
 
-		put_tile(glyph, guard.pos.0, guard.pos.1, color);
-	}
+        put_tile(glyph, guard.pos.0, guard.pos.1, color);
+    }
 
-	for guard in guards {
-		if let Some(glyph) = guard.overhead_icon(map, player) {
-			put_offset_tile(glyph, guard.pos.0, guard.pos.1, color_preset::LIGHT_YELLOW, 0, 10);
-		}
-	}
+    for guard in guards {
+        if let Some(glyph) = guard.overhead_icon(map, player) {
+            put_offset_tile(glyph, guard.pos.0, guard.pos.1, color_preset::LIGHT_YELLOW, 0, 10);
+        }
+    }
 
 /*
-	if let Some(guard) = guards.first() {
-		if guard.region_goal != INVALID_REGION {
-			let distance_field = map.compute_distances_to_region(guard.region_goal);
-			for x in 0..map_size_x {
-				for y in 0..map_size_y {
-					let pos = Vector::new(x as f32, ((map_size_y - 1) - y) as f32);
-					let d = distance_field[[x, y]];
-					if d == 0 || d == INFINITE_COST {
-						continue;
-					}
-					let digit = (d % 10) + 48;
-					let band = d / 10;
-					let image = &tileset[digit];
-					let pos_px = offset_px + TILE_SIZE.times(pos);
-					let color = if band == 0 {color_preset::WHITE} else if band == 1 {color_preset::LIGHT_YELLOW} else {color_preset::DARK_GRAY};
-					window.draw(
-						&Rectangle::new(pos_px, image.area().size()),
-						Blended(&image, color),
-					)
-				}
-			}
-		}
-	}
+    if let Some(guard) = guards.first() {
+        if guard.region_goal != INVALID_REGION {
+            let distance_field = map.compute_distances_to_region(guard.region_goal);
+            for x in 0..map_size_x {
+                for y in 0..map_size_y {
+                    let pos = Vector::new(x as f32, ((map_size_y - 1) - y) as f32);
+                    let d = distance_field[[x, y]];
+                    if d == 0 || d == INFINITE_COST {
+                        continue;
+                    }
+                    let digit = (d % 10) + 48;
+                    let band = d / 10;
+                    let image = &tileset[digit];
+                    let pos_px = offset_px + TILE_SIZE.times(pos);
+                    let color = if band == 0 {color_preset::WHITE} else if band == 1 {color_preset::LIGHT_YELLOW} else {color_preset::DARK_GRAY};
+                    window.draw(
+                        &Rectangle::new(pos_px, image.area().size()),
+                        Blended(&image, color),
+                    )
+                }
+            }
+        }
+    }
 */
 
 /*
-	if let Some(guard) = guards.first() {
-		let image = &tileset[255];
-		if guard.region_prev != INVALID_REGION {
+    if let Some(guard) = guards.first() {
+        let image = &tileset[255];
+        if guard.region_prev != INVALID_REGION {
 
-			let region = &map.patrol_regions[guard.region_prev];
-			for x in region.pos_min.0 .. region.pos_max.0 {
-				for y in region.pos_min.1 .. region.pos_max.1 {
-					let pos = Vector::new(x as f32, ((map_size_y - 1) as i32 - y) as f32);
-					let pos_px = offset_px + TILE_SIZE.times(pos);
-					let color = Color {r:1.0, g:0.0, b:0.0, a:0.25};
-					window.draw(
-						&Rectangle::new(pos_px, image.area().size()),
-						Blended(&image, color),
-					)
-				}
-			}
-		}
-		if guard.region_goal != INVALID_REGION {
-			let region = &map.patrol_regions[guard.region_goal];
-			for x in region.pos_min.0 .. region.pos_max.0 {
-				for y in region.pos_min.1 .. region.pos_max.1 {
-					let pos = Vector::new(x as f32, ((map_size_y - 1) as i32 - y) as f32);
-					let pos_px = offset_px + TILE_SIZE.times(pos);
-					let color = Color {r:0.0, g:1.0, b:0.0, a:0.25};
-					window.draw(
-						&Rectangle::new(pos_px, image.area().size()),
-						Blended(&image, color),
-					)
-				}
-			}
-		}
-	}
+            let region = &map.patrol_regions[guard.region_prev];
+            for x in region.pos_min.0 .. region.pos_max.0 {
+                for y in region.pos_min.1 .. region.pos_max.1 {
+                    let pos = Vector::new(x as f32, ((map_size_y - 1) as i32 - y) as f32);
+                    let pos_px = offset_px + TILE_SIZE.times(pos);
+                    let color = Color {r:1.0, g:0.0, b:0.0, a:0.25};
+                    window.draw(
+                        &Rectangle::new(pos_px, image.area().size()),
+                        Blended(&image, color),
+                    )
+                }
+            }
+        }
+        if guard.region_goal != INVALID_REGION {
+            let region = &map.patrol_regions[guard.region_goal];
+            for x in region.pos_min.0 .. region.pos_max.0 {
+                for y in region.pos_min.1 .. region.pos_max.1 {
+                    let pos = Vector::new(x as f32, ((map_size_y - 1) as i32 - y) as f32);
+                    let pos_px = offset_px + TILE_SIZE.times(pos);
+                    let color = Color {r:0.0, g:1.0, b:0.0, a:0.25};
+                    window.draw(
+                        &Rectangle::new(pos_px, image.area().size()),
+                        Blended(&image, color),
+                    )
+                }
+            }
+        }
+    }
 */
 
-	game.popups.draw(
-		screen_size_x,
-		screen_size_y,
-		Coord(TILE_SIZE, TILE_SIZE),
-		Coord(offset_x, offset_y),
-		game.player.pos
-	);
+    game.popups.draw(
+        screen_size_x,
+        screen_size_y,
+        Coord(TILE_SIZE, TILE_SIZE),
+        Coord(offset_x, offset_y),
+        game.player.pos
+    );
 
-	if game.show_help {
-		draw_help(screen_size_x, screen_size_y, game.help_page);
-	}
+    if game.show_help {
+        draw_help(screen_size_x, screen_size_y, game.help_page);
+    }
 
-	draw_top_status_bar(screen_size_x, screen_size_y, game);
-	draw_bottom_status_bar(screen_size_x, screen_size_y, game);
+    draw_top_status_bar(screen_size_x, screen_size_y, game);
+    draw_bottom_status_bar(screen_size_x, screen_size_y, game);
 }
 
 fn glyph_for_item(kind: ItemKind) -> u32 {
@@ -293,7 +293,7 @@ fn move_player(game: &mut Game, mut dx: i32, mut dy: i32) {
 
         update_map_visibility(&mut game.map, game.player.pos);
 
-		engine::invalidate_screen();
+        engine::invalidate_screen();
         return;
     }
 
@@ -343,7 +343,7 @@ fn move_player(game: &mut Game, mut dx: i32, mut dy: i32) {
 
     advance_time(game);
 
-	engine::invalidate_screen();
+    engine::invalidate_screen();
 }
 
 fn make_noise(map: &mut Map, player: &mut Player, popups: &mut Popups, noise: &'static str) {
@@ -455,108 +455,107 @@ fn blocked(map: &Map, pos_old: Coord, pos_new: Coord) -> bool {
 }
 
 pub fn on_key_down(game: &mut Game, key: i32, ctrl_key_down: bool, shift_key_down: bool) {
-	let handle_key = if game.show_help {
-		on_key_down_help_mode
-	} else {
-		on_key_down_game_mode
-	};
+    let handle_key = if game.show_help {
+        on_key_down_help_mode
+    } else {
+        on_key_down_game_mode
+    };
 
-	handle_key(game, key, ctrl_key_down, shift_key_down);
+    handle_key(game, key, ctrl_key_down, shift_key_down);
 }
 
 fn on_key_down_game_mode(game: &mut Game, key: i32, ctrl_key_down: bool, shift_key_down: bool) {
-	if key == engine::KEY_SLASH {
-		game.show_help = true;
-		engine::invalidate_screen();
-	} else if let Some(dir) = dir_from_key(key, ctrl_key_down, shift_key_down) {
-		move_player(game, dir.0, dir.1);
-	} else if ctrl_key_down {
-		match key {
-			engine::KEY_A => {
-				game.player.see_all = !game.player.see_all;
-				engine::invalidate_screen();
-			},
-			engine::KEY_C => {
-				game.map.mark_all_unseen();
-				update_map_visibility(&mut game.map, game.player.pos);
-				engine::invalidate_screen();
-			},
-			engine::KEY_R => {
-				restart_game(game);
-				engine::invalidate_screen();
-			},
-			engine::KEY_S => {
-				game.map.mark_all_seen();
-				engine::invalidate_screen();
-			},
-			_ => {}
-		}
-	}
+    if key == engine::KEY_SLASH {
+        game.show_help = true;
+        engine::invalidate_screen();
+    } else if let Some(dir) = dir_from_key(key, ctrl_key_down, shift_key_down) {
+        move_player(game, dir.0, dir.1);
+    } else if ctrl_key_down {
+        match key {
+            engine::KEY_A => {
+                game.player.see_all = !game.player.see_all;
+                engine::invalidate_screen();
+            },
+            engine::KEY_C => {
+                game.map.mark_all_unseen();
+                update_map_visibility(&mut game.map, game.player.pos);
+                engine::invalidate_screen();
+            },
+            engine::KEY_R => {
+                restart_game(game);
+                engine::invalidate_screen();
+            },
+            engine::KEY_S => {
+                game.map.mark_all_seen();
+                engine::invalidate_screen();
+            },
+            _ => {}
+        }
+    }
 }
 
 fn dir_from_key(key: i32, ctrl_key_down: bool, shift_key_down: bool) -> Option<Coord> {
-	let vertical_offset =
-		if ctrl_key_down {-1} else {0} +
-		if shift_key_down {1} else {0};
+    let vertical_offset =
+        if ctrl_key_down {-1} else {0} +
+        if shift_key_down {1} else {0};
 
-	match key {
-		engine::KEY_LEFT => Some(Coord(-1, vertical_offset)),
-		engine::KEY_UP | engine::KEY_NUMPAD8 | engine::KEY_K => Some(Coord(0, 1)),
-		engine::KEY_RIGHT => Some(Coord(1, vertical_offset)),
-		engine::KEY_DOWN | engine::KEY_NUMPAD2 | engine::KEY_J => Some(Coord(0, -1)),
-		engine::KEY_NUMPAD1 | engine::KEY_B => Some(Coord(-1, -1)),
-		engine::KEY_NUMPAD4 | engine::KEY_H => Some(Coord(-1, 0)),
-		engine::KEY_NUMPAD6 | engine::KEY_L => Some(Coord(1, 0)),
-		engine::KEY_NUMPAD3 | engine::KEY_N => Some(Coord(1, -1)),
-		engine::KEY_NUMPAD9 | engine::KEY_U => Some(Coord(1, 1)),
-		engine::KEY_NUMPAD7 | engine::KEY_Y => Some(Coord(-1, 1)),
-		engine::KEY_NUMPAD5 | engine::KEY_PERIOD => Some(Coord(0, 0)),
-		_ => None
-	}
+    match key {
+        engine::KEY_LEFT => Some(Coord(-1, vertical_offset)),
+        engine::KEY_UP | engine::KEY_NUMPAD8 | engine::KEY_K => Some(Coord(0, 1)),
+        engine::KEY_RIGHT => Some(Coord(1, vertical_offset)),
+        engine::KEY_DOWN | engine::KEY_NUMPAD2 | engine::KEY_J => Some(Coord(0, -1)),
+        engine::KEY_NUMPAD1 | engine::KEY_B => Some(Coord(-1, -1)),
+        engine::KEY_NUMPAD4 | engine::KEY_H => Some(Coord(-1, 0)),
+        engine::KEY_NUMPAD6 | engine::KEY_L => Some(Coord(1, 0)),
+        engine::KEY_NUMPAD3 | engine::KEY_N => Some(Coord(1, -1)),
+        engine::KEY_NUMPAD9 | engine::KEY_U => Some(Coord(1, 1)),
+        engine::KEY_NUMPAD7 | engine::KEY_Y => Some(Coord(-1, 1)),
+        engine::KEY_NUMPAD5 | engine::KEY_PERIOD => Some(Coord(0, 0)),
+        _ => None
+    }
 }
 
 fn on_key_down_help_mode(game: &mut Game, key: i32, ctrl_key_down: bool, _shift_key_down: bool) {
-	if ctrl_key_down {
-		return;
-	}
+    if ctrl_key_down {
+        return;
+    }
 
-	match key {
-		engine::KEY_ESCAPE | engine::KEY_SLASH => {
-			game.show_help = false;
-			engine::invalidate_screen();
-		},
-		engine::KEY_LEFT | engine::KEY_NUMPAD4 => {
-			if game.help_page > 0 {
-				game.help_page -= 1;
-				engine::invalidate_screen();
-			}
-		},
-		engine::KEY_RIGHT | engine::KEY_NUMPAD6 => {
-			if game.help_page < HELP_MESSAGES.len() - 1 {
-				game.help_page += 1;
-				engine::invalidate_screen();
-			}
-		}
-		_ => {}
-	}
+    match key {
+        engine::KEY_ESCAPE | engine::KEY_SLASH => {
+            game.show_help = false;
+            engine::invalidate_screen();
+        },
+        engine::KEY_LEFT | engine::KEY_NUMPAD4 => {
+            if game.help_page > 0 {
+                game.help_page -= 1;
+                engine::invalidate_screen();
+            }
+        },
+        engine::KEY_RIGHT | engine::KEY_NUMPAD6 => {
+            if game.help_page < HELP_MESSAGES.len() - 1 {
+                game.help_page += 1;
+                engine::invalidate_screen();
+            }
+        }
+        _ => {}
+    }
 }
 
 // Tile-set drawing
 
 fn draw_tile_by_index(tile_index: u32, dest_x: i32, dest_y: i32, color: u32) {
-	const TEXTURE_INDEX: u32 = 0;
-	const TILES_PER_ROW: u32 = 16; // 256 pixels wide divided by 16 pixels per tile
-	let src_x = TILE_SIZE * (tile_index % TILES_PER_ROW) as i32;
-	let src_y = TILE_SIZE * (tile_index / TILES_PER_ROW) as i32;
-	engine::draw_tile(dest_x, dest_y, TILE_SIZE, TILE_SIZE, color, TEXTURE_INDEX, src_x, src_y);
+    const TEXTURE_INDEX: u32 = 0;
+    let src_x = ((tile_index & 15) * 16) as i32;
+    let src_y = (240 - (tile_index & !15)) as i32;
+    engine::draw_tile(dest_x, dest_y, TILE_SIZE, TILE_SIZE, color, TEXTURE_INDEX, src_x, src_y);
 }
 
 // Status bars
 
 fn draw_bottom_status_bar(screen_size_x: i32, _screen_size_y: i32, game: &Game) {
-	engine::draw_rect(0, 0, screen_size_x, BAR_HEIGHT, BAR_BACKGROUND_COLOR);
+    engine::draw_rect(0, 0, screen_size_x, BAR_HEIGHT, BAR_BACKGROUND_COLOR);
 
-    let y_base = 7;
+    let y_base = 2;
 
     const HEALTH_COLOR: u32 = 0xff0000a8;
     let mut x = 8;
@@ -565,13 +564,13 @@ fn draw_bottom_status_bar(screen_size_x: i32, _screen_size_y: i32, game: &Game) 
 
     const TILE_HEALTHY: u32 = 213;
     for _ in 0..game.player.health {
-		draw_tile_by_index(TILE_HEALTHY, x, y_base, HEALTH_COLOR);
+        draw_tile_by_index(TILE_HEALTHY, x, y_base + 5, HEALTH_COLOR);
         x += TILE_SIZE;
     }
 
     const TILE_UNHEALTHY: u32 = 7;
     for _ in game.player.health..game.player.max_health {
-		draw_tile_by_index(TILE_UNHEALTHY, x, y_base, HEALTH_COLOR);
+        draw_tile_by_index(TILE_UNHEALTHY, x, y_base + 5, HEALTH_COLOR);
         x += TILE_SIZE;
     }
 
@@ -585,14 +584,14 @@ fn draw_bottom_status_bar(screen_size_x: i32, _screen_size_y: i32, game: &Game) 
         const TILE_AIR: u32 = 214;
         const AIR_COLOR: u32 = 0xfffefe54;
         for _ in 0..game.player.turns_remaining_underwater - 1 {
-			draw_tile_by_index(TILE_AIR, x, y_base, AIR_COLOR);
+            draw_tile_by_index(TILE_AIR, x, y_base + 5, AIR_COLOR);
             x += TILE_SIZE;
         }
 
         const TILE_NO_AIR: u32 = 7;
         const NO_AIR_COLOR: u32 = 0xffa8a800;
         for _ in game.player.turns_remaining_underwater - 1 .. 5 {
-			draw_tile_by_index(TILE_NO_AIR, x, y_base, NO_AIR_COLOR);
+            draw_tile_by_index(TILE_NO_AIR, x, y_base + 5, NO_AIR_COLOR);
             x += TILE_SIZE;
         }
     }
@@ -624,19 +623,19 @@ fn draw_bottom_status_bar(screen_size_x: i32, _screen_size_y: i32, game: &Game) 
 }
 
 fn draw_top_status_bar(screen_size_x: i32, screen_size_y: i32, game: &Game) {
-	engine::draw_rect(0, screen_size_y - BAR_HEIGHT, screen_size_x, BAR_HEIGHT, BAR_BACKGROUND_COLOR);
+    engine::draw_rect(0, screen_size_y - BAR_HEIGHT, screen_size_x, BAR_HEIGHT, BAR_BACKGROUND_COLOR);
 
-    let y_base = screen_size_y - BAR_HEIGHT + 7;
+    let y_base = screen_size_y - BAR_HEIGHT + 2;
 
-	const COLOR: u32 = 0xffffffff; // white
+    const COLOR: u32 = 0xffffffff; // white
 
     if game.show_help {
-		let msg = format!("Page {} of {}", game.help_page + 1, HELP_MESSAGES.len());
+        let msg = format!("Page {} of {}", game.help_page + 1, HELP_MESSAGES.len());
         let (x_min, x_max) = get_horizontal_extents(&msg);
         let x = screen_size_x - (8 + (x_max - x_min));
 
         puts_proportional(x, y_base, &msg, COLOR);
-		puts_proportional(8, y_base, "Press left/right arrow keys to view help, or Esc to close", COLOR);
+        puts_proportional(8, y_base, "Press left/right arrow keys to view help, or Esc to close", COLOR);
     } else {
         let msg =
             if game.player.health == 0 {
@@ -707,15 +706,15 @@ fn draw_help(screen_size_x: i32, screen_size_y: i32, help_page: usize) {
 
     const SCREEN_DARKENING_COLOR: u32 = 0xa0101010;
     const WINDOW_BACKGROUND_COLOR: u32 = 0xff404040;
-	const TEXT_COLOR: u32 = 0xffffffff;
+    const TEXT_COLOR: u32 = 0xffffffff;
 
     let box_min_x = (screen_size_x - BOX_SIZE_X) / 2;
     let box_min_y = (screen_size_y - (BAR_HEIGHT + BOX_SIZE_Y)) / 2 + BAR_HEIGHT;
 
-	engine::draw_rect(0, BAR_HEIGHT, screen_size_x, screen_size_y - 2 * BAR_HEIGHT, SCREEN_DARKENING_COLOR);
-	engine::draw_rect(box_min_x, box_min_y, BOX_SIZE_X, BOX_SIZE_Y, WINDOW_BACKGROUND_COLOR);
+    engine::draw_rect(0, BAR_HEIGHT, screen_size_x, screen_size_y - 2 * BAR_HEIGHT, SCREEN_DARKENING_COLOR);
+    engine::draw_rect(box_min_x, box_min_y, BOX_SIZE_X, BOX_SIZE_Y, WINDOW_BACKGROUND_COLOR);
 
     let help_msg = HELP_MESSAGES[help_page];
 
-    puts_proportional(box_min_x + MARGIN, box_min_y + BOX_SIZE_Y + 5 - (fontdata::LINE_HEIGHT + MARGIN), help_msg, TEXT_COLOR);
+    puts_proportional(box_min_x + MARGIN, box_min_y + BOX_SIZE_Y - (fontdata::LINE_HEIGHT + MARGIN), help_msg, TEXT_COLOR);
 }

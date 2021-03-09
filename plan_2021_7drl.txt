@@ -16,28 +16,29 @@ New mechanics:
 
   * Disguises
       * Outfits are placed in the environment and you can swap at them
-	  * People who will instantly give chase are marked
-	  * People who will see through your disguise are marked
+      * People who will instantly give chase are marked
+      * People who will see through your disguise are marked
       * Some outfits offer protection against cold or dust
   * Identify -- find a specific person by looking at the "faces" of NPCs up close
   * Isolate -- get into a space alone with an NPC to trigger a conversation
   * Ways to route NPCs and immobilize them. The isolate gameplay will require being
     able to do something like this. Maybe things that attract specific types of NPCs
-	and then hold their attention until something bigger interrupts?
+    and then hold their attention until something bigger interrupts?
   * Big loot -- stealing these gets noticed and triggers changes to enemy layout
       * Maybe at first it concentrates enemies in the space where the big loot was,
-	    but then over time they spend less time there
+        but then over time they spend less time there
   * Wet tracks -- going through water makes tracks that trigger suspicious investigation
 
 == To Do ==
 
- [ ] Overhaul the text rendering so everything's aligned correctly
- [ ] Fix speech bubbles
+ [ ] Message toggle key (Space) is missing
  [ ] Implement guard communication
  [ ] Fix the extremely ugly cell grid access (having to cast to usize all the time)
  [ ] Support resizable canvas and reactive layout for the web page, for small screens
  [ ] Figure out how to host this
 
+ [X] Fix speech bubbles
+ [X] Overhaul the text rendering so everything's aligned correctly
  [X] Make own Coord class
  [X] Port over the Quicksilver version of ThiefRL
  [X] Break up lib.rs into an interface module and the game itself
@@ -69,197 +70,197 @@ on_key(key: i32, ctrl: bool, shift: bool) {...}
 == Disguises ==
 
     Disguises are found in dressers. Changing clothes is possible only when
-	no one is watching. Nobody cares about the outfits? Maybe the dressers
-	are considered closed; you have to check them to see what they contain.
+    no one is watching. Nobody cares about the outfits? Maybe the dressers
+    are considered closed; you have to check them to see what they contain.
 
-	Once in a disguise, different people will react based on who they are
-	and where you are.
+    Once in a disguise, different people will react based on who they are
+    and where you are.
 
-	You can be dressed in a prohibited outfit for an area and a group of
-	enforcers. They will immediately attempt to apprehend you and remove
-	you from the space. They may either try to just get you to exit, or
-	they might try to kill you.
+    You can be dressed in a prohibited outfit for an area and a group of
+    enforcers. They will immediately attempt to apprehend you and remove
+    you from the space. They may either try to just get you to exit, or
+    they might try to kill you.
 
-	Signal: someone will recognize you if you aren't blending in
-	Signal: someone will recognize you if they see your face up close
-	Signal: someone will recognize you at any range
+    Signal: someone will recognize you if you aren't blending in
+    Signal: someone will recognize you if they see your face up close
+    Signal: someone will recognize you at any range
 
-	Blending in means doing activities that match your outfit.
+    Blending in means doing activities that match your outfit.
 
-	Servant: cook, clean, push chairs back into position, serve food, wash dishes
+    Servant: cook, clean, push chairs back into position, serve food, wash dishes
 
-	Guard: check doors and windows; light lamps. Maybe you need to stop
-	  and chat every time you cross another guard's path.
+    Guard: check doors and windows; light lamps. Maybe you need to stop
+      and chat every time you cross another guard's path.
 
-	Noble: sit around, chat, drink, throw up, play games
+    Noble: sit around, chat, drink, throw up, play games
 
-	Among all classes, with your own kind, some will ignore you. Some will
-	chatter. Some will want to hang out with you, so long as you do things
-	that interest them. The leaders of the class, on the other hand, will
-	recognize that you are an impostor if you are facing them nearby. The
-	rest can recognize you are an impostor if you perform actions unsuited
-	to your station.
-	
-	You can take advantage of these various responses to reposition people.
-	If you chatter with someone, and then another person shows up to talk,
-	you can leave them talking with each other which they will keep doing
-	until a disturbance breaks up the meeting.
+    Among all classes, with your own kind, some will ignore you. Some will
+    chatter. Some will want to hang out with you, so long as you do things
+    that interest them. The leaders of the class, on the other hand, will
+    recognize that you are an impostor if you are facing them nearby. The
+    rest can recognize you are an impostor if you perform actions unsuited
+    to your station.
+    
+    You can take advantage of these various responses to reposition people.
+    If you chatter with someone, and then another person shows up to talk,
+    you can leave them talking with each other which they will keep doing
+    until a disturbance breaks up the meeting.
 
-	Conversation management: Everybody needs to feel like they are getting
-	heard; if someone isn't getting heard they'll move along. Or maybe
-	there is an object that makes for a conversation nucleus, like a
-	clothes basket or a board game. If you take that away then the group
-	breaks up.
-	
-	The key bit here is to be able to carry things and set them down.
-	
-	Servants' quarters:
-		Noble or Guard: Servants leave
-		Servant: Other servants chat; head servant detects
-		Beggar:
+    Conversation management: Everybody needs to feel like they are getting
+    heard; if someone isn't getting heard they'll move along. Or maybe
+    there is an object that makes for a conversation nucleus, like a
+    clothes basket or a board game. If you take that away then the group
+    breaks up.
+    
+    The key bit here is to be able to carry things and set them down.
+    
+    Servants' quarters:
+        Noble or Guard: Servants leave
+        Servant: Other servants chat; head servant detects
+        Beggar:
 
-	Guards' quarters:
-		Noble: Guards line up
-		Servant: Guards give you laundry or cleaning chores
-		Guard: Other guards chat; head guard detects
-		Beggar: driven out
+    Guards' quarters:
+        Noble: Guards line up
+        Servant: Guards give you laundry or cleaning chores
+        Guard: Other guards chat; head guard detects
+        Beggar: driven out
 
-	Public spaces:
-		Noble: Guards and servants get out of your way.
-			Other nobles will want to engage in chat, walking or seated.
-			Head noble detects you.
+    Public spaces:
+        Noble: Guards and servants get out of your way.
+            Other nobles will want to engage in chat, walking or seated.
+            Head noble detects you.
 
 
 == Bouncers ==
 
-	Guards at the boundary of an area who will move to intercept you if you
-	are not wearing an allowed outfit. They will pursue you if they see you
-	inside the controlled space in the wrong outfit.
+    Guards at the boundary of an area who will move to intercept you if you
+    are not wearing an allowed outfit. They will pursue you if they see you
+    inside the controlled space in the wrong outfit.
 
 == Gangs ==
 
-	Gang members are trying to isolate people who might have money so they
-	can take it. They will be doing something like Maxwell's Daemon to control
-	who gets into an area. This would be via bouncer behavior; they'd present
-	a closed-door effect to some people. Once they detect that the target is
-	surrounded and alone, they make there move to mug them.
+    Gang members are trying to isolate people who might have money so they
+    can take it. They will be doing something like Maxwell's Daemon to control
+    who gets into an area. This would be via bouncer behavior; they'd present
+    a closed-door effect to some people. Once they detect that the target is
+    surrounded and alone, they make there move to mug them.
 
-	The player should have some avenues of escape from these confrontations,
-	like jumping into water or out a window or through bushes.
+    The player should have some avenues of escape from these confrontations,
+    like jumping into water or out a window or through bushes.
 
-	If they take a noble's carried money, or your carried money, then you will
-	have to steal it from them. You can bank your money to keep it from being
-	stolen but then you have to retrieve it for donating later. Maybe there
-	are safe boxes around the level that don't count for donation but let you
-	safely stash loot.
+    If they take a noble's carried money, or your carried money, then you will
+    have to steal it from them. You can bank your money to keep it from being
+    stolen but then you have to retrieve it for donating later. Maybe there
+    are safe boxes around the level that don't count for donation but let you
+    safely stash loot.
 
 == Identification ==
 
-	People can be identified by looking at their faces from up close. Maybe
-	there'd be a roster of everybody in the level, which you fill in by
-	looking at everybody's faces. If you hear someone call them by name then
-	you get a name for them too. This helps you know who to deliver info to
-	or collect info from.
+    People can be identified by looking at their faces from up close. Maybe
+    there'd be a roster of everybody in the level, which you fill in by
+    looking at everybody's faces. If you hear someone call them by name then
+    you get a name for them too. This helps you know who to deliver info to
+    or collect info from.
 
-	You can be identified as a stranger by peers. In public spaces you are
-	treated as a visitor, while in private spaces you'd be driven out or
-	attacked.
+    You can be identified as a stranger by peers. In public spaces you are
+    treated as a visitor, while in private spaces you'd be driven out or
+    attacked.
 
 == Confrontation ==
 
-	This involves getting the target alone in a room with you and then being
-	seen by the target. Once this happens, a cutscene ensues. It may be that
-	you need to get the target alone in a dead end and be blocking them in.
+    This involves getting the target alone in a room with you and then being
+    seen by the target. Once this happens, a cutscene ensues. It may be that
+    you need to get the target alone in a dead end and be blocking them in.
 
 == People Management ==
 
-	There are tools for directing and separating people of different types.
-	One possible way could be to do something to place that will require
-	attention from a certain type of person. They will be occupied working
-	on it until a new stimulus comes up.
+    There are tools for directing and separating people of different types.
+    One possible way could be to do something to place that will require
+    attention from a certain type of person. They will be occupied working
+    on it until a new stimulus comes up.
 
-	Activity stations can be made interesting. You can start cooking a
-	dish, for instance; at some point it will need to be finished and
-	served.
-	
-	Doors could potentially be locked/unlocked to guide people. Guards who
-	are patrolling might assume that locked doors don't need to be passed
-	through. Particular squares need to be guarded, though, so if their
-	route does not have a way to reach that they will unlock doors until
-	they can.
+    Activity stations can be made interesting. You can start cooking a
+    dish, for instance; at some point it will need to be finished and
+    served.
+    
+    Doors could potentially be locked/unlocked to guide people. Guards who
+    are patrolling might assume that locked doors don't need to be passed
+    through. Particular squares need to be guarded, though, so if their
+    route does not have a way to reach that they will unlock doors until
+    they can.
 
-	Open and shut doors might be a thing? It would let loud disturbances
-	draw people in from farther away.
+    Open and shut doors might be a thing? It would let loud disturbances
+    draw people in from farther away.
 
 == Steal Information and Goods ==
 
-	Some pieces of information you find have specific people who they are
-	valuable to.
+    Some pieces of information you find have specific people who they are
+    valuable to.
 
-	Goods break down into flashy things, which need to go to larger donation
-	boxes (temples, say), and smaller things which go to individual houses.
-	Once a flashy thing gets stolen its loss is noticed and it shifts where
-	guards go, to make it a little harder to get the remaining flashy things.
+    Goods break down into flashy things, which need to go to larger donation
+    boxes (temples, say), and smaller things which go to individual houses.
+    Once a flashy thing gets stolen its loss is noticed and it shifts where
+    guards go, to make it a little harder to get the remaining flashy things.
 
-	Prisoners have to be escorted out of danger.
+    Prisoners have to be escorted out of danger.
 
 == Errands ==
 
-	An errand is a somewhat unusual trip made by a person. Usually worth
-	following because there will be information to overhear, or something
-	else to steal, at the end of it.
-	
-	A servant might journey outside their mansion to visit a servant from
-	another mansion. Or they might go to the market to buy things. Or to
-	a relative's house.
-	
-	A noble or a guard might have a rendezvous with someone outside their
-	normal area.
-	
-	Errands might involve multiple people.
+    An errand is a somewhat unusual trip made by a person. Usually worth
+    following because there will be information to overhear, or something
+    else to steal, at the end of it.
+    
+    A servant might journey outside their mansion to visit a servant from
+    another mansion. Or they might go to the market to buy things. Or to
+    a relative's house.
+    
+    A noble or a guard might have a rendezvous with someone outside their
+    normal area.
+    
+    Errands might involve multiple people.
 
 == Schedules ==
 
-	Some activities need to happen on a schedule; the NPCs will work to try
-	to keep the schedule moving forward as much as possible.
+    Some activities need to happen on a schedule; the NPCs will work to try
+    to keep the schedule moving forward as much as possible.
 
-	The schedule might look like:
-	
-	Duke of D'Stortion visits Lord Fauntleroy for dinner
-	
-		1. Duke dresses
-		2. Horses brought out to yard
-		3. Guards brought out
-		4. Parade forms up and moves out across the city
-		5. Meanwhile guards patrol the house and servants
+    The schedule might look like:
+    
+    Duke of D'Stortion visits Lord Fauntleroy for dinner
+    
+        1. Duke dresses
+        2. Horses brought out to yard
+        3. Guards brought out
+        4. Parade forms up and moves out across the city
+        5. Meanwhile guards patrol the house and servants
 
-	Each activity requires a set of people to be in place doing a thing
+    Each activity requires a set of people to be in place doing a thing
 
-	Arrange activities in a graph. Maybe have nesting activities. The
-	dinner party could be an activity that occupies all or most of a
-	household.
-	
-	Activity Ideas:
-	
-		Cook dinner
-		Serve dinner
-		Eat dinner
-		Clean up dinner
-		Welcome
-		Drinks
-		Meeting
-		Seeing off
-		Using the latrine
-		Put out laundry
-		Take in laundry
-		Light the lamps
-		Extinguish the lamps
+    Arrange activities in a graph. Maybe have nesting activities. The
+    dinner party could be an activity that occupies all or most of a
+    household.
+    
+    Activity Ideas:
+    
+        Cook dinner
+        Serve dinner
+        Eat dinner
+        Clean up dinner
+        Welcome
+        Drinks
+        Meeting
+        Seeing off
+        Using the latrine
+        Put out laundry
+        Take in laundry
+        Light the lamps
+        Extinguish the lamps
 
 == Reaction conversations ==
 
-	People need to say things about what's happened and what will happen
-	and what is happening.
+    People need to say things about what's happened and what will happen
+    and what is happening.
 
 == Sneak up to someone surrounded by guards ==
 
-	Could do this in a bar or something low-stakes, for starters.
+    Could do this in a bar or something low-stakes, for starters.
