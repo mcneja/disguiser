@@ -138,8 +138,10 @@ function runWasm(gl, glResources, wasm) {
 		},
 	};
 
-	WebAssembly.instantiateStreaming(wasm, importObject).then(results => {
-		const wasmExports = results.instance.exports;
+	wasm.arrayBuffer().then(bytes =>
+		WebAssembly.instantiate(bytes, importObject)
+	).then(result => {
+		const wasmExports = result.instance.exports;
 
 		function ensureScreenValid() {
 			if (!screenValid) {
