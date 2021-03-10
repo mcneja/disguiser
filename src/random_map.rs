@@ -1333,7 +1333,7 @@ fn render_walls(random: &mut Random, rooms: &[Room], adjacencies: &[Adjacency], 
     }
 }
 
-fn render_rooms(level: usize, rooms: &[Room], map: &mut Map, random: &mut Random) {
+fn render_rooms(_level: usize, rooms: &[Room], map: &mut Map, random: &mut Random) {
     for i_room in 1..rooms.len() {
         let room = &rooms[i_room];
 
@@ -1348,14 +1348,16 @@ fn render_rooms(level: usize, rooms: &[Room], map: &mut Map, random: &mut Random
 
         for x in room.pos_min.0..room.pos_max.0 {
             for y in room.pos_min.1..room.pos_max.1 {
+                /*
                 let t =
                     if cell_type == CellType::GroundWood && level > 3 && random.gen_bool(1.0 / 50.0) {
                         CellType::GroundWoodCreaky
                     } else {
                         cell_type
                     };
+                */
 
-                map.cells[[x as usize, y as usize]].cell_type = t;
+                map.cells[[x as usize, y as usize]].cell_type = cell_type; // t;
             }
         }
 
@@ -1681,6 +1683,12 @@ fn place_guards(random: &mut Random, level: usize, rooms: &Vec<Room>, map: &mut 
             }
         }
     }
+
+    // Make one of the guards a seer (able to see through player's disguise)
+
+    if let Some(guard) = map.guards.first_mut() {
+        guard.seer = true;
+    }
 }
 
 fn generate_initial_guard_pos(random: &mut Random, map: &Map) -> Option<Coord> {
@@ -1718,6 +1726,7 @@ fn place_guard(random: &mut Random, map: &mut Map, pos: Coord) {
         mode: guard::GuardMode::Patrol,
         speaking: false,
         has_moved: false,
+        seer: false,
         heard_thief: false,
         hearing_guard: false,
         heard_guard: false,

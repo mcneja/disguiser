@@ -1,4 +1,5 @@
 use crate::cell_grid::*;
+use crate::color_preset;
 use crate::coord::Coord;
 use rand::prelude::*;
 use std::cmp::min;
@@ -23,6 +24,7 @@ pub struct Guard {
     pub pos: Coord,
     pub dir: Coord,
     pub mode: GuardMode,
+    pub seer: bool,
     pub speaking: bool,
     pub has_moved: bool,
     pub heard_thief: bool,
@@ -338,22 +340,26 @@ fn act(&mut self, random: &mut Random, see_all: bool, popups: &mut Popups, lines
     }
 }
 
-pub fn overhead_icon(&self, map: &Map, player: &Player, see_all: bool) -> Option<u32> {
-    if self.mode == GuardMode::Patrol {
+pub fn overhead_icon_and_color(&self, map: &Map, player: &Player, see_all: bool) -> Option<(u32, u32)> {
+    let cell = &map.cells[[self.pos.0 as usize, self.pos.1 as usize]];
+    let visible = see_all || cell.seen || self.speaking;
+    if !visible && (player.pos - self.pos).length_squared() > 25 {
         return None;
     }
 
-    let cell = &map.cells[[self.pos.0 as usize, self.pos.1 as usize]];
-
-    let visible = see_all || cell.seen || self.speaking;
-    if !visible {
-        let dpos = player.pos - self.pos;
-        if dpos.length_squared() > 25 {
-            return None;
-        }
+    if self.mode == GuardMode::ChaseVisibleTarget {
+        return Some((217, color_preset::LIGHT_YELLOW));
     }
 
-    Some(if self.mode == GuardMode::ChaseVisibleTarget {216} else {215})
+    if self.mode != GuardMode::Patrol {
+        return Some((216, color_preset::LIGHT_YELLOW));
+    }
+
+    if (self.seer || !player.disguised) && visible && cell.lit {
+        return Some((219, color_preset::WHITE));
+    }
+
+    None
 }
 
 fn say(&mut self, popups: &mut Popups, player: &Player, see_all: bool, msg: &'static str) {
@@ -373,7 +379,7 @@ fn adjacent_to(&self, pos: Coord) -> bool {
 }
 
 fn sees_thief(&self, map: &Map, player: &Player) -> bool {
-    if player.disguised {
+    if player.disguised && !self.seer && self.mode == GuardMode::Patrol {
         return false;
     }
 

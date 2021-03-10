@@ -15,7 +15,7 @@ const BAR_BACKGROUND_COLOR: u32 = 0xff101010;
 
 const TILE_SIZE: i32 = 16;
 
-const TESTING: bool = true;
+const TESTING: bool = false;
 
 pub struct Game {
     random: Random,
@@ -49,7 +49,7 @@ pub fn new_game(seed: u64) -> Game {
         map,
         player,
         finished_level: false,
-        see_all: true,
+        see_all: TESTING,
         show_msgs: true,
         show_help: false,
         help_page: 0,
@@ -123,6 +123,7 @@ pub fn on_draw(game: &Game, screen_size_x: i32, screen_size_y: i32) {
         put_tile(glyph, item.pos.0, item.pos.1, color);
     }
 
+/*
     // Halo around player
 
     {
@@ -147,11 +148,12 @@ pub fn on_draw(game: &Game, screen_size_x: i32, screen_size_y: i32) {
         draw_tile_by_index(234, pos.0, view_edge_min.1, color);
         draw_tile_by_index(235, pos.0, view_edge_max.1 - TILE_SIZE, color);
     }
+*/
 
     // Player
 
     {
-        let tile_index = if player.disguised {209 + tile_index_offset_for_dir(player.dir)} else {208};
+        let tile_index = tile_index_offset_for_dir(player.dir) + if player.disguised {212} else {208};
 
         let lit = map.cells[[player.pos.0 as usize, player.pos.1 as usize]].lit;
         let hidden = player.hidden(map);
@@ -170,7 +172,7 @@ pub fn on_draw(game: &Game, screen_size_x: i32, screen_size_y: i32) {
     // Guards
 
     for guard in guards {
-        let tile_index = 209 + tile_index_offset_for_dir(guard.dir);
+        let tile_index = 212 + tile_index_offset_for_dir(guard.dir);
         let cell = &map.cells[[guard.pos.0 as usize, guard.pos.1 as usize]];
         
         let visible = game.see_all || cell.seen || guard.speaking;
@@ -197,10 +199,14 @@ pub fn on_draw(game: &Game, screen_size_x: i32, screen_size_y: i32) {
     // Guard overhead icons
 
     for guard in guards {
-        if let Some(tile_index) = guard.overhead_icon(map, player, game.see_all) {
-            put_offset_tile(tile_index, guard.pos.0, guard.pos.1, color_preset::LIGHT_YELLOW, 0, 10);
+        if let Some((tile_index, color)) = guard.overhead_icon_and_color(map, player, game.see_all) {
+            put_offset_tile(tile_index, guard.pos.0, guard.pos.1, color, 0, 10);
         }
     }
+
+    // Player overhead icon
+
+    put_offset_tile(218, player.pos.0, player.pos.1, color_preset::LIGHT_YELLOW, 0, 10);
 
 /*
     if let Some(guard) = guards.first() {
@@ -359,6 +365,7 @@ fn move_player(game: &mut Game, mut dx: i32, mut dy: i32) {
         game.player.dir = Coord(0, -1);
         game.player.gold = 0;
         game.player.noisy = false;
+        game.player.disguised = false;
         game.player.damaged_last_turn = false;
         game.player.turns_remaining_underwater = 0;
 
@@ -636,7 +643,7 @@ fn draw_bottom_status_bar(screen_size_x: i32, _screen_size_y: i32, game: &Game) 
     x = puts_proportional(x, y_base, "Health", HEALTH_COLOR);
     x += 12;
 
-    const TILE_HEALTHY: u32 = 213;
+    const TILE_HEALTHY: u32 = 5;
     for _ in 0..game.player.health {
         draw_tile_by_index(TILE_HEALTHY, x, y_base + 5, HEALTH_COLOR);
         x += TILE_SIZE;
