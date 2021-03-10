@@ -1,10 +1,9 @@
 # What is this?
 
-A port of ThiefRL2, a 2016 7DRL (Seven Day Roguelike) challenge entry by James McNeill.
-
-The original was written in C++ using OpenGL and Win32. This version is written in Javascript and Rust.
+A Seven-day Roguelike by James McNeill. Written for the 2021 7DRL challenge.
 
 Explore mansions, steal all their loot, and get out without being caught by the guards.
+Don disguises to avoid detection.
 
 ## How to build
 
