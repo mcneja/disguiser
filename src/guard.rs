@@ -21,7 +21,7 @@ pub fn is_guard_at(map: &Map, x: i32, y: i32) -> bool {
     return false;
 }
 
-pub fn guard_act_all(random: &mut Random, popups: &mut Popups, lines: &mut Lines, map: &mut Map, player: &mut Player) {
+pub fn guard_act_all(random: &mut Random, see_all: bool, popups: &mut Popups, lines: &mut Lines, map: &mut Map, player: &mut Player) {
 
     // Mark if we heard a guard last turn, and clear the speaking flag.
 
@@ -35,7 +35,7 @@ pub fn guard_act_all(random: &mut Random, popups: &mut Popups, lines: &mut Lines
     let mut shouts: Vec<Shout> = Vec::new();
 
     for mut guard in guards.drain(..) {
-        guard.act(random, popups, lines, player, map, &mut shouts);
+        guard.act(random, see_all, popups, lines, player, map, &mut shouts);
         map.guards.push(guard);
     }
 
@@ -154,7 +154,7 @@ fn hear_guard(&mut self, pos_target: Coord) {
     self.heard_guard_pos = pos_target;
 }
 
-fn act(&mut self, random: &mut Random, popups: &mut Popups, lines: &mut Lines, player: &mut Player, map: &Map, shouts: &mut Vec<Shout>) {
+fn act(&mut self, random: &mut Random, see_all: bool, popups: &mut Popups, lines: &mut Lines, player: &mut Player, map: &Map, shouts: &mut Vec<Shout>) {
 
     let mode_prev = self.mode;
     let pos_prev = self.pos;
@@ -271,49 +271,49 @@ fn act(&mut self, random: &mut Random, popups: &mut Popups, lines: &mut Lines, p
         match self.mode {
             GuardMode::Patrol => {
                 if mode_prev == GuardMode::Look {
-                    self.say(popups, player, lines.done_looking.next());
+                    self.say(popups, player, see_all, lines.done_looking.next());
                 } else if mode_prev == GuardMode::Listen {
-                    self.say(popups, player, lines.done_listening.next());
+                    self.say(popups, player, see_all, lines.done_listening.next());
                 }
                 else if mode_prev == GuardMode::MoveToLastSound || mode_prev == GuardMode::MoveToGuardShout {
-                    self.say(popups, player, lines.end_investigate.next());
+                    self.say(popups, player, see_all, lines.end_investigate.next());
                 }
                 else if mode_prev == GuardMode::MoveToLastSighting {
-                    self.say(popups, player, lines.end_chase.next());
+                    self.say(popups, player, see_all, lines.end_chase.next());
                 }
             },
             GuardMode::Look => {
-                self.say(popups, player, lines.see.next());
+                self.say(popups, player, see_all, lines.see.next());
             },
             GuardMode::Listen => {
-                self.say(popups, player, lines.hear.next());
+                self.say(popups, player, see_all, lines.hear.next());
             },
             GuardMode::ChaseVisibleTarget => {
                 if mode_prev != GuardMode::MoveToLastSighting {
                     shouts.push(Shout{pos_shouter: self.pos, pos_target: player.pos});
-                    self.say(popups, player, lines.chase.next());
+                    self.say(popups, player, see_all, lines.chase.next());
                 }
             },
             GuardMode::MoveToLastSighting => {
             },
             GuardMode::MoveToLastSound => {
-                self.say(popups, player, lines.investigate.next());
+                self.say(popups, player, see_all, lines.investigate.next());
             },
             GuardMode::MoveToGuardShout => {
-                self.say(popups, player, lines.hear_guard.next());
+                self.say(popups, player, see_all, lines.hear_guard.next());
             },
         }
     }
 }
 
-pub fn overhead_icon(&self, map: &Map, player: &Player) -> Option<u32> {
+pub fn overhead_icon(&self, map: &Map, player: &Player, see_all: bool) -> Option<u32> {
     if self.mode == GuardMode::Patrol {
         return None;
     }
 
     let cell = &map.cells[[self.pos.0 as usize, self.pos.1 as usize]];
 
-    let visible = player.see_all || cell.seen || self.speaking;
+    let visible = see_all || cell.seen || self.speaking;
     if !visible {
         let dpos = player.pos - self.pos;
         if dpos.length_squared() > 25 {
@@ -324,11 +324,11 @@ pub fn overhead_icon(&self, map: &Map, player: &Player) -> Option<u32> {
     Some(if self.mode == GuardMode::ChaseVisibleTarget {216} else {215})
 }
 
-fn say(&mut self, popups: &mut Popups, player: &Player, msg: &'static str) {
+fn say(&mut self, popups: &mut Popups, player: &Player, see_all: bool, msg: &'static str) {
     let d = self.pos - player.pos;
     let dist_squared = d.length_squared();
 
-    if dist_squared < 200 || player.see_all {
+    if dist_squared < 200 || see_all {
         popups.guard_speech(self.pos, msg);
     }
 

@@ -140,8 +140,6 @@ pub struct Player {
     pub finished_level: bool,
 
     pub turns_remaining_underwater: usize,
-
-    pub see_all: bool,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -254,7 +252,6 @@ pub fn make_player(pos: Coord) -> Player {
         damaged_last_turn: false,
         finished_level: false,
         turns_remaining_underwater: 0,
-        see_all: false,
     }
 }
 

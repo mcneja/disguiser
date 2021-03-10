@@ -1,5 +1,5 @@
 [package]
-name = "thiefrl2_wasm"
+name = "disguiser"
 version = "0.1.0"
 authors = ["James McNeill <mcneja@gmail.com>"]
 

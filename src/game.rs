@@ -22,6 +22,7 @@ pub struct Game {
     lines: Lines,
     popups: Popups,
     player: Player,
+    see_all: bool,
     show_msgs: bool,
     show_help: bool,
     help_page: usize,
@@ -44,6 +45,7 @@ pub fn new_game(seed: u64) -> Game {
         popups,
         map,
         player,
+        see_all: true,
         show_msgs: true,
         show_help: false,
         help_page: 0,
@@ -51,14 +53,12 @@ pub fn new_game(seed: u64) -> Game {
 }
 
 fn restart_game(game: &mut Game) {
-    let see_all = game.player.see_all;
     game.level = 0;
     game.map = random_map::generate_map(&mut game.random, game.level);
     game.player = make_player(game.map.pos_start);
     game.show_msgs = true;
     game.show_help = false;
     game.popups = new_popups();
-    game.player.see_all = see_all;
 
     update_map_visibility(&mut game.map, game.player.pos);
 }
@@ -93,7 +93,7 @@ pub fn on_draw(game: &Game, screen_size_x: i32, screen_size_y: i32) {
     for x in 0..map_size_x {
         for y in 0..map_size_y {
             let cell = &map.cells[[x, y]];
-            if !cell.seen && !player.see_all {
+            if !cell.seen && !game.see_all {
                 continue;
             }
             let tile = tile_def(cell.cell_type);
@@ -104,7 +104,7 @@ pub fn on_draw(game: &Game, screen_size_x: i32, screen_size_y: i32) {
 
     for item in items {
         let cell = &map.cells[[item.pos.0 as usize, item.pos.1 as usize]];
-        if !cell.seen && !player.see_all {
+        if !cell.seen && !game.see_all {
             continue;
         }
         let glyph = glyph_for_item(item.kind);
@@ -140,7 +140,7 @@ pub fn on_draw(game: &Game, screen_size_x: i32, screen_size_y: i32) {
 
         let cell = &map.cells[[guard.pos.0 as usize, guard.pos.1 as usize]];
         
-        let visible = player.see_all || cell.seen || guard.speaking;
+        let visible = game.see_all || cell.seen || guard.speaking;
 
         if !visible {
             let dpos = player.pos - guard.pos;
@@ -162,7 +162,7 @@ pub fn on_draw(game: &Game, screen_size_x: i32, screen_size_y: i32) {
     }
 
     for guard in guards {
-        if let Some(glyph) = guard.overhead_icon(map, player) {
+        if let Some(glyph) = guard.overhead_icon(map, player, game.see_all) {
             put_offset_tile(glyph, guard.pos.0, guard.pos.1, color_preset::LIGHT_YELLOW, 0, 10);
         }
     }
@@ -421,7 +421,7 @@ fn advance_time(game: &mut Game) {
         game.player.turns_remaining_underwater = 7;
     }
 
-    guard_act_all(&mut game.random, &mut game.popups, &mut game.lines, &mut game.map, &mut game.player);
+    guard_act_all(&mut game.random, game.see_all, &mut game.popups, &mut game.lines, &mut game.map, &mut game.player);
 
     update_map_visibility(&mut game.map, game.player.pos);
 
@@ -504,7 +504,7 @@ fn on_key_down_game_mode(game: &mut Game, key: i32, ctrl_key_down: bool, shift_k
     } else if ctrl_key_down {
         match key {
             engine::KEY_A => {
-                game.player.see_all = !game.player.see_all;
+                game.see_all = !game.see_all;
                 engine::invalidate_screen();
             },
             engine::KEY_C => {
