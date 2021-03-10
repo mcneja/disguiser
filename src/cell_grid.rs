@@ -2,7 +2,7 @@ use crate::color_preset;
 use crate::coord::Coord;
 use multiarray::Array2D;
 use rand::Rng;
-use std::cmp::max;
+use std::cmp::min;
 use std::cmp::Ordering;
 use std::collections::BinaryHeap;
 use std::collections::VecDeque;
@@ -260,7 +260,7 @@ pub fn make_player(pos: Coord) -> Player {
 
 impl Player {
     pub fn apply_damage(&mut self, d: usize) {
-        self.health = max(0, self.health - d);
+        self.health -= min(d, self.health);
         self.damaged_last_turn = true;
     }
 
