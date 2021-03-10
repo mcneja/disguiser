@@ -1,10 +1,12 @@
 use crate::color_preset;
 use crate::coord::Coord;
+use crate::guard;
 use multiarray::Array2D;
 use rand::Rng;
 use std::cmp::min;
 use std::cmp::Ordering;
 use std::collections::BinaryHeap;
+use std::collections::HashSet;
 use std::collections::VecDeque;
 
 pub type Random = rand_pcg::Pcg32;
@@ -74,41 +76,9 @@ pub struct Map {
     pub patrol_regions: Vec<Rect>,
     pub patrol_routes: Vec<(usize, usize)>,
     pub items: Vec<Item>,
-    pub guards: Vec<Guard>,
+    pub guards: Vec<guard::Guard>,
     pub pos_start: Coord,
     pub total_loot: usize,
-}
-
-#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
-pub enum GuardMode
-{
-    Patrol,
-    Look,
-    Listen,
-    ChaseVisibleTarget,
-    MoveToLastSighting,
-    MoveToLastSound,
-    MoveToGuardShout,
-}
-
-pub struct Guard {
-    pub pos: Coord,
-    pub dir: Coord,
-    pub mode: GuardMode,
-    pub speaking: bool,
-    pub has_moved: bool,
-    pub heard_thief: bool,
-    pub hearing_guard: bool,
-    pub heard_guard: bool,
-    pub heard_guard_pos: Coord,
-
-    // Chase
-    pub goal: Coord,
-    pub mode_timeout: usize,
-
-    // Patrol
-    pub region_goal: usize,
-    pub region_prev: usize,
 }
 
 pub struct Item {
@@ -263,7 +233,7 @@ impl Player {
 
     pub fn hidden(&self, map: &Map) -> bool {
         for guard in &map.guards {
-            if guard.mode == GuardMode::ChaseVisibleTarget {
+            if guard.mode == guard::GuardMode::ChaseVisibleTarget {
                 return false;
             }
         }
@@ -709,29 +679,32 @@ pub fn hides_player(&self, x: i32, y: i32) -> bool {
     self.cells[[x as usize, y as usize]].hides_player
 }
 
-pub fn find_guards_in_earshot(&mut self, emitter_pos: Coord, radius: i32) -> Vec<&mut Guard> {
-    let mut visited: Array2D<bool> = Array2D::new([self.cells.extents()[0], self.cells.extents()[1]], false);
-
+pub fn coords_in_earshot(&self, emitter_pos: Coord, radius: i32) -> HashSet<Coord> {
     // Flood-fill from the emitter position.
 
-    let mut points: VecDeque<Coord> = VecDeque::new();
-    points.push_back(emitter_pos);
-    visited[[emitter_pos.0 as usize, emitter_pos.1 as usize]] = true;
+    let capacity = self.cells.extents()[0] * self.cells.extents()[1];
+    let mut coords_visited: HashSet<Coord> = HashSet::with_capacity(capacity);
+    let mut coords_to_visit: VecDeque<Coord> = VecDeque::with_capacity(capacity);
 
-    while let Some(pos) = points.pop_front() {
+    coords_to_visit.push_back(emitter_pos);
+
+    while let Some(pos) = coords_to_visit.pop_front() {
+
+        coords_visited.insert(pos);
+
         for dir in &SOUND_NEIGHBORS {
             let new_pos = pos + *dir;
 
             // Skip positions that are off the map.
 
             if new_pos.0 < 0 || new_pos.0 >= self.cells.extents()[0] as i32 ||
-                new_pos.1 < 0 || new_pos.1 >= self.cells.extents()[1] as i32 {
+               new_pos.1 < 0 || new_pos.1 >= self.cells.extents()[1] as i32 {
                 continue;
             }
 
             // Skip neighbors that have already been visited.
 
-            if visited[[new_pos.0 as usize, new_pos.1 as usize]] {
+            if coords_visited.contains(&new_pos) {
                 continue;
             }
 
@@ -749,22 +722,16 @@ pub fn find_guards_in_earshot(&mut self, emitter_pos: Coord, radius: i32) -> Vec
                 continue;
             }
 
-            visited[[new_pos.0 as usize, new_pos.1 as usize]] = true;
-            points.push_back(new_pos);
+            coords_to_visit.push_back(new_pos);
         }
     }
 
-    // Return guards that are on marked squares.
+    coords_visited
+}
 
-    let mut guards = Vec::with_capacity(self.guards.len());
-
-    for guard in &mut self.guards {
-        if visited[[guard.pos.0 as usize, guard.pos.1 as usize]] {
-            guards.push(guard);
-        }
-    }
-
-    guards
+pub fn guards_in_earshot(&mut self, emitter_pos: Coord, radius: i32) -> Vec<&mut guard::Guard> {
+    let coords_in_earshot = self.coords_in_earshot(emitter_pos, radius);
+    self.guards.iter_mut().filter(|guard| coords_in_earshot.contains(&guard.pos)).collect()
 }
 
 }

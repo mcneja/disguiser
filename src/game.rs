@@ -6,8 +6,8 @@ use crate::coord::Coord;
 use crate::fontdata;
 use crate::engine;
 use crate::speech_bubbles::{get_horizontal_extents, puts_proportional, new_popups, Popups};
-use crate::cell_grid::{CellGrid, CellType, GuardMode, ItemKind, Map, Player, Random, make_player, tile_def};
-use crate::guard::{Lines, guard_act_all, is_guard_at, new_lines};
+use crate::cell_grid::{CellGrid, CellType, ItemKind, Map, Player, Random, make_player, tile_def};
+use crate::guard::{GuardMode, Lines, guard_act_all, is_guard_at, new_lines};
 use crate::random_map;
 
 const BAR_HEIGHT: i32 = fontdata::LINE_HEIGHT + 2;
@@ -378,9 +378,7 @@ fn make_noise(map: &mut Map, player: &mut Player, popups: &mut Popups, noise: &'
     player.noisy = true;
     popups.noise(player.pos, noise);
 
-    let guards = map.find_guards_in_earshot(player.pos, 75);
-
-    for guard in guards {
+    for guard in map.guards_in_earshot(player.pos, 75) {
         guard.hear_thief();
     }
 }

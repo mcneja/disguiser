@@ -1,4 +1,4 @@
-#[derive(Clone, Copy, Eq, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Eq, Ord, PartialEq, PartialOrd, Hash)]
 pub struct Coord(pub i32, pub i32);
 
 impl Coord {

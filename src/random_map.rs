@@ -1,4 +1,5 @@
 use crate::cell_grid::*;
+use crate::guard;
 use crate::coord::Coord;
 use rand::prelude::*;
 use std::cmp::min;
@@ -1711,10 +1712,10 @@ fn generate_initial_guard_pos(random: &mut Random, map: &Map) -> Option<Coord> {
 
 fn place_guard(random: &mut Random, map: &mut Map, pos: Coord) {
 
-    let mut guard = Guard {
+    let mut guard = guard::Guard {
         pos: pos,
         dir: Coord(1, 0),
-        mode: GuardMode::Patrol,
+        mode: guard::GuardMode::Patrol,
         speaking: false,
         has_moved: false,
         heard_thief: false,

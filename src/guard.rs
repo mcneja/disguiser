@@ -7,6 +7,38 @@ use multiarray::Array2D;
 
 use crate::speech_bubbles::Popups;
 
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub enum GuardMode
+{
+    Patrol,
+    Look,
+    Listen,
+    ChaseVisibleTarget,
+    MoveToLastSighting,
+    MoveToLastSound,
+    MoveToGuardShout,
+}
+
+pub struct Guard {
+    pub pos: Coord,
+    pub dir: Coord,
+    pub mode: GuardMode,
+    pub speaking: bool,
+    pub has_moved: bool,
+    pub heard_thief: bool,
+    pub hearing_guard: bool,
+    pub heard_guard: bool,
+    pub heard_guard_pos: Coord,
+
+    // Chase
+    pub goal: Coord,
+    pub mode_timeout: usize,
+
+    // Patrol
+    pub region_goal: usize,
+    pub region_prev: usize,
+}
+
 struct Shout {
     pos_shouter: Coord, // where is the person shouting?
     pos_target: Coord, // where are they reporting the player is?
@@ -47,7 +79,7 @@ pub fn guard_act_all(random: &mut Random, see_all: bool, popups: &mut Popups, li
 }
 
 fn alert_nearby_guards(map: &mut Map, shout: &Shout) {
-    for guard in map.find_guards_in_earshot(shout.pos_shouter, 150) {
+    for guard in map.guards_in_earshot(shout.pos_shouter, 150) {
         if guard.pos != shout.pos_shouter {
             guard.hear_guard(shout.pos_target);
         }
