@@ -373,6 +373,10 @@ fn adjacent_to(&self, pos: Coord) -> bool {
 }
 
 fn sees_thief(&self, map: &Map, player: &Player) -> bool {
+    if player.disguised {
+        return false;
+    }
+
     let d = player.pos - self.pos;
     if self.dir.dot(d) < 0 {
         return false;
@@ -491,13 +495,13 @@ pub fn setup_goal_region(&mut self, random: &mut Random, map: &Map) {
 
 }
 
-fn update_dir(dir_forward: Coord, dir_aim: Coord) -> Coord {
+pub fn update_dir(dir_forward: Coord, dir_aim: Coord) -> Coord {
     let dir_left = Coord(-dir_forward.1, dir_forward.0);
 
     let dot_forward = dir_forward.dot(dir_aim);
     let dot_left = dir_left.dot(dir_aim);
 
-    if dot_forward.abs() > dot_left.abs() {
+    if dot_forward.abs() >= dot_left.abs() {
         if dot_forward >= 0 {dir_forward} else {-dir_forward}
     } else if dot_left.abs() > dot_forward.abs() {
         if dot_left >= 0 {dir_left} else {-dir_left}

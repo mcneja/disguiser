@@ -104,6 +104,7 @@ pub struct Player {
     pub max_health: usize,
     pub health: usize,
     pub gold: usize,
+    pub disguised: bool,
 
     pub noisy: bool, // did the player make noise last turn?
     pub damaged_last_turn: bool,
@@ -214,10 +215,11 @@ pub fn make_player(pos: Coord) -> Player {
     let health = 5;
     Player {
         pos: pos,
-        dir: Coord(0, 0),
+        dir: Coord(0, -1),
         max_health: health,
         health: health,
         gold: 0,
+        disguised: false,
         noisy: false,
         damaged_last_turn: false,
         finished_level: false,
