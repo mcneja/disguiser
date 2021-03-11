@@ -1,8 +1,9 @@
-use std::cmp::{min, max};
 use crate::color_preset;
 use crate::coord::Coord;
-use crate::engine;
 use crate::fontdata::{Glyph, GLYPH, LINE_HEIGHT};
+use crate::engine;
+
+use std::cmp::{min, max};
 
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum PopupType {

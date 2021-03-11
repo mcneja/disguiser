@@ -1,9 +1,10 @@
-use crate::cell_grid::*;
-use crate::guard;
+use crate::cell_grid;
+use crate::cell_grid::{Cell, CellGrid, CellType, INVALID_REGION, Item, ItemKind, Map, Random, Rect};
 use crate::coord::Coord;
-use rand::prelude::*;
-use std::cmp::min;
-use std::cmp::max;
+use crate::guard;
+
+use rand::prelude::{Rng, SliceRandom};
+use std::cmp::{Ordering, min, max};
 use std::mem::swap;
 use multiarray::Array2D;
 
@@ -112,6 +113,12 @@ fn generate_siheyuan(random: &mut Random, level: usize) -> Map {
         &mut map);
 
     map.pos_start = pos_start;
+
+    // Place outfits.
+
+    if level > 1 {
+        place_outfits(random, &rooms, &adjacencies, &mut map);
+    }
 
     // Place loot.
 
@@ -1497,6 +1504,90 @@ fn place_item(map: &mut Map, x: i32, y: i32, item_kind: ItemKind) {
     );
 }
 
+fn place_outfits(random: &mut Random, rooms: &Vec<Room>, adjacencies: &[Adjacency], map: &mut Map) {
+
+    let num_exits = |room: &Room| {
+        room.edges.iter().filter(|i_adj| adjacencies[**i_adj].door).count()
+    };
+
+    let room_order = |room0: &&Room, room1: &&Room| {
+        let num_exits0 = num_exits(room0);
+        let num_exits1 = num_exits(room1);
+        if num_exits0 < num_exits1 {
+            return Ordering::Less;
+        } else if num_exits0 > num_exits1 {
+            return Ordering::Greater;
+        }
+        if room0.room_type == RoomType::MasterSuite && room1.room_type != RoomType::MasterSuite {
+            return Ordering::Less;
+        } else if room0.room_type != RoomType::MasterSuite && room1.room_type == RoomType::MasterSuite {
+            return Ordering::Greater;
+        }
+        Ordering::Equal
+    };
+
+    let mut rooms_ordered: Vec<&Room> = rooms.iter().collect();
+    rooms_ordered.retain(|room| room.room_type == RoomType::Interior || room.room_type == RoomType::MasterSuite);
+    rooms_ordered.shuffle(random);
+    rooms_ordered.sort_by(room_order);
+
+    let mut num_outfits: usize = max(1, rooms.len() / 10);
+    for room in rooms_ordered {
+        if try_place_outfit(random, room.pos_min, room.pos_max, map) {
+            num_outfits -= 1;
+            if num_outfits == 0 {
+                break;
+            }
+        }
+    }
+}
+
+fn try_place_outfit(random: &mut Random, pos_min: Coord, pos_max: Coord, map: &mut Map) -> bool
+{
+    let dx = pos_max.0 - pos_min.0;
+    let dy = pos_max.1 - pos_min.1;
+
+    for _ in 0..1000 {
+        let pos = Coord(pos_min.0 + random.gen_range(0..dx), pos_min.1 + random.gen_range(0..dy));
+
+        let cell_type = map.cells[[pos.0 as usize, pos.1 as usize]].cell_type;
+
+        if cell_type != CellType::GroundWood && cell_type != CellType::GroundMarble {
+            continue;
+        }
+
+        if is_item_at_pos(&map, pos.0, pos.1) {
+            continue;
+        }
+
+        if door_or_window_adjacent(&map.cells, pos) {
+            continue;
+        }
+    
+        place_item(map, pos.0, pos.1, ItemKind::Outfit2);
+        return true;
+    }
+
+    false
+}
+
+fn door_or_window_adjacent(map: &CellGrid, pos: Coord) -> bool {
+    for dir in &DIRS {
+        let pos_adj = pos + *dir;
+        if map[[pos_adj.0 as usize, pos_adj.1 as usize]].cell_type >= CellType::OneWayWindowE {
+            return true;
+        }
+    }
+    false
+}
+
+const DIRS: [Coord; 4] = [
+    Coord(-1, 0),
+    Coord(1, 0),
+    Coord(0, -1),
+    Coord(0, 1),
+];
+
 fn place_loot(random: &mut Random, rooms: &Vec<Room>, adjacencies: &[Adjacency], map: &mut Map) {
 
     // Count number of internal rooms.
@@ -1686,8 +1777,10 @@ fn place_guards(random: &mut Random, level: usize, rooms: &Vec<Room>, map: &mut 
 
     // Make one of the guards a seer (able to see through player's disguise)
 
-    if let Some(guard) = map.guards.first_mut() {
-        guard.seer = true;
+    if level > 2 {
+        if let Some(guard) = map.guards.first_mut() {
+            guard.seer = true;
+        }
     }
 }
 
@@ -1772,8 +1865,8 @@ fn cache_cell_info(map: &mut Map) {
         for y in 0..sy {
             let cell = &mut map.cells[[x, y]];
             let cell_type = cell.cell_type;
-            let tile = tile_def(cell_type);
-            cell.move_cost = guard_move_cost_for_tile_type(cell_type);
+            let tile = cell_grid::tile_def(cell_type);
+            cell.move_cost = cell_grid::guard_move_cost_for_tile_type(cell_type);
             cell.blocks_player_sight = tile.blocks_player_sight;
             cell.blocks_sight = tile.blocks_sight;
             cell.blocks_sound = tile.blocks_sound;
@@ -1784,7 +1877,7 @@ fn cache_cell_info(map: &mut Map) {
     for item in &map.items {
         let cell = &mut map.cells[[item.pos.0 as usize, item.pos.1 as usize]];
         let kind = item.kind;
-        cell.move_cost = max(cell.move_cost, guard_move_cost_for_item_kind(kind));
+        cell.move_cost = max(cell.move_cost, cell_grid::guard_move_cost_for_item_kind(kind));
         if kind == ItemKind::DoorNS || kind == ItemKind::DoorEW {
             cell.blocks_player_sight = true;
         }

@@ -1,21 +1,22 @@
-use rand::{SeedableRng};
+use rand::SeedableRng;
 use std::cmp::{min, max};
 
+use crate::cell_grid::{CellGrid, CellType, ItemKind, Map, Player, Random, make_player, tile_def};
 use crate::color_preset;
 use crate::coord::Coord;
-use crate::fontdata;
 use crate::engine;
-use crate::speech_bubbles::{get_horizontal_extents, puts_proportional, new_popups, Popups};
-use crate::cell_grid::{CellGrid, CellType, ItemKind, Map, Player, Random, make_player, tile_def};
+use crate::fontdata;
 use crate::guard::{GuardMode, Lines, guard_act_all, is_guard_at, new_lines, update_dir};
 use crate::random_map;
+use crate::speech_bubbles::{get_horizontal_extents, puts_proportional, new_popups, Popups};
 
 const BAR_HEIGHT: i32 = fontdata::LINE_HEIGHT + 2;
 const BAR_BACKGROUND_COLOR: u32 = 0xff101010;
 
 const TILE_SIZE: i32 = 16;
 
-const TESTING: bool = false;
+const INITIAL_LEVEL: usize = 0;
+const SEE_ALL_DEFAULT: bool = false;
 
 pub struct Game {
     random: Random,
@@ -33,7 +34,7 @@ pub struct Game {
 
 pub fn new_game(seed: u64) -> Game {
     let mut random = Random::seed_from_u64(seed);
-    let level = if TESTING {5} else {0};
+    let level = INITIAL_LEVEL;
     let mut map = random_map::generate_map(&mut random, level);
     let player = make_player(map.pos_start);
     let lines = new_lines();
@@ -49,7 +50,7 @@ pub fn new_game(seed: u64) -> Game {
         map,
         player,
         finished_level: false,
-        see_all: TESTING,
+        see_all: SEE_ALL_DEFAULT,
         show_msgs: true,
         show_help: false,
         help_page: 0,
@@ -57,7 +58,7 @@ pub fn new_game(seed: u64) -> Game {
 }
 
 fn restart_game(game: &mut Game) {
-    game.level = if TESTING {5} else {0};
+    game.level = INITIAL_LEVEL;
     game.map = random_map::generate_map(&mut game.random, game.level);
     game.finished_level = false;
     game.player = make_player(game.map.pos_start);
@@ -327,6 +328,8 @@ fn glyph_for_item(kind: ItemKind) -> u32 {
         ItemKind::DoorEW => 167,
         ItemKind::PortcullisNS => 194,
         ItemKind::PortcullisEW => 194,
+        ItemKind::Outfit1 => 163,
+        ItemKind::Outfit2 => 163,
     }
 }
 
@@ -340,10 +343,30 @@ fn color_for_item(kind: ItemKind) -> u32 {
         ItemKind::DoorEW => color_preset::DARK_BROWN,
         ItemKind::PortcullisNS => color_preset::LIGHT_GRAY,
         ItemKind::PortcullisEW => color_preset::LIGHT_GRAY,
+        ItemKind::Outfit1 => color_preset::LIGHT_GRAY,
+        ItemKind::Outfit2 => color_preset::LIGHT_MAGENTA,
     }
 }
 
-fn move_player(game: &mut Game, mut dx: i32, mut dy: i32) {
+fn advance_to_next_level(game: &mut Game) {
+    game.level += 1;
+    game.map = random_map::generate_map(&mut game.random, game.level);
+    game.finished_level = false;
+
+    game.player.pos = game.map.pos_start;
+    game.player.dir = Coord(0, -1);
+    game.player.gold = 0;
+    game.player.noisy = false;
+    game.player.disguised = false;
+    game.player.damaged_last_turn = false;
+    game.player.turns_remaining_underwater = 0;
+
+    update_map_visibility(&mut game.map, game.player.pos);
+
+    engine::invalidate_screen();
+}
+
+fn move_player(game: &mut Game, mut dpos: Coord) {
     let player = &mut game.player;
 
     // Can't move if you're dead.
@@ -354,59 +377,41 @@ fn move_player(game: &mut Game, mut dx: i32, mut dy: i32) {
 
     // Are we trying to exit the level?
 
-    let pos_new = player.pos + Coord(dx, dy);
+    let pos_new = player.pos + dpos;
 
     if !on_level(&game.map.cells, pos_new) && game.map.all_seen() && game.map.all_loot_collected() {
-        game.level += 1;
-        game.map = random_map::generate_map(&mut game.random, game.level);
-        game.finished_level = false;
-
-        game.player.pos = game.map.pos_start;
-        game.player.dir = Coord(0, -1);
-        game.player.gold = 0;
-        game.player.noisy = false;
-        game.player.disguised = false;
-        game.player.damaged_last_turn = false;
-        game.player.turns_remaining_underwater = 0;
-
-        update_map_visibility(&mut game.map, game.player.pos);
-
-        engine::invalidate_screen();
+        advance_to_next_level(game);
         return;
     }
 
-    if dx == 0 || dy == 0 {
-        if blocked(&game.map, player.pos, pos_new) {
-            return;
-        }
-    } else if blocked(&game.map, player.pos, pos_new) {
-        if halts_slide(&game.map, pos_new) {
+    if blocked(&game.map, player.pos, pos_new) {
+        if dpos.0 == 0 || dpos.1 == 0 || halts_slide(&game.map, pos_new) {
+            try_use_in_direction(game, dpos);
             return;
         } else {
             // Attempting to move diagonally; may be able to slide along a wall.
 
-            let v_blocked = blocked(&game.map, player.pos, player.pos + Coord(dx, 0));
-            let h_blocked = blocked(&game.map, player.pos, player.pos + Coord(0, dy));
+            let v_blocked = blocked(&game.map, player.pos, player.pos + Coord(dpos.0, 0));
+            let h_blocked = blocked(&game.map, player.pos, player.pos + Coord(0, dpos.1));
 
             if v_blocked {
                 if h_blocked {
+                    try_use_in_direction(game, dpos);
                     return;
                 }
-
-                dx = 0;
+                dpos.0 = 0;
             } else {
                 if !h_blocked {
+                    try_use_in_direction(game, dpos);
                     return;
                 }
-
-                dy = 0;
+                dpos.1 = 0;
             }
         }
     }
 
     pre_turn(game);
 
-    let dpos = Coord(dx, dy);
     game.player.dir = update_dir(game.player.dir, dpos);
     game.player.pos += dpos;
     game.player.gold += game.map.collect_loot_at(game.player.pos);
@@ -422,6 +427,16 @@ fn move_player(game: &mut Game, mut dx: i32, mut dy: i32) {
     advance_time(game);
 
     engine::invalidate_screen();
+}
+
+fn try_use_in_direction(game: &mut Game, dpos: Coord) {
+    let pos = game.player.pos + dpos;
+    if let Some(outfit_new) = game.map.try_use_outfit_at(pos, if game.player.disguised {ItemKind::Outfit2} else {ItemKind::Outfit1}) {
+        pre_turn(game);
+        game.player.disguised = outfit_new != ItemKind::Outfit1;
+        advance_time(game);
+        engine::invalidate_screen();
+    }
 }
 
 fn make_noise(map: &mut Map, player: &mut Player, popups: &mut Popups, noise: &'static str) {
@@ -526,6 +541,10 @@ fn blocked(map: &Map, pos_old: Coord, pos_new: Coord) -> bool {
         return true;
     }
 
+    if map.is_outfit_at(pos_new) {
+        return true;
+    }
+
     false
 }
 
@@ -546,11 +565,8 @@ fn on_key_down_game_mode(game: &mut Game, key: i32, ctrl_key_down: bool, shift_k
     } else if key == engine::KEY_SPACE {
         game.show_msgs = !game.show_msgs;
         engine::invalidate_screen();
-    } else if key == engine::KEY_D {
-        game.player.disguised = !game.player.disguised;
-        engine::invalidate_screen();
     } else if let Some(dir) = dir_from_key(key, ctrl_key_down, shift_key_down) {
-        move_player(game, dir.0, dir.1);
+        move_player(game, dir);
     } else if ctrl_key_down {
         match key {
             engine::KEY_A => {
@@ -562,12 +578,26 @@ fn on_key_down_game_mode(game: &mut Game, key: i32, ctrl_key_down: bool, shift_k
                 update_map_visibility(&mut game.map, game.player.pos);
                 engine::invalidate_screen();
             },
+            engine::KEY_D => {
+                game.player.disguised = !game.player.disguised;
+                engine::invalidate_screen();
+            },
+            engine::KEY_L => {
+                game.player.gold += game.map.collect_all_loot();
+                if game.map.all_seen() {
+                    game.finished_level = true;
+                }
+                engine::invalidate_screen();
+            },
             engine::KEY_R => {
                 restart_game(game);
                 engine::invalidate_screen();
             },
             engine::KEY_S => {
                 game.map.mark_all_seen();
+                if game.map.all_loot_collected() {
+                    game.finished_level = true;
+                }
                 engine::invalidate_screen();
             },
             _ => {}
@@ -576,23 +606,32 @@ fn on_key_down_game_mode(game: &mut Game, key: i32, ctrl_key_down: bool, shift_k
 }
 
 fn dir_from_key(key: i32, ctrl_key_down: bool, shift_key_down: bool) -> Option<Coord> {
-    let vertical_offset =
-        if ctrl_key_down {-1} else {0} +
-        if shift_key_down {1} else {0};
-
-    match key {
-        engine::KEY_LEFT => Some(Coord(-1, vertical_offset)),
-        engine::KEY_UP | engine::KEY_NUMPAD8 | engine::KEY_K => Some(Coord(0, 1)),
-        engine::KEY_RIGHT => Some(Coord(1, vertical_offset)),
-        engine::KEY_DOWN | engine::KEY_NUMPAD2 | engine::KEY_J => Some(Coord(0, -1)),
-        engine::KEY_NUMPAD1 | engine::KEY_B => Some(Coord(-1, -1)),
-        engine::KEY_NUMPAD4 | engine::KEY_H => Some(Coord(-1, 0)),
-        engine::KEY_NUMPAD6 | engine::KEY_L => Some(Coord(1, 0)),
-        engine::KEY_NUMPAD3 | engine::KEY_N => Some(Coord(1, -1)),
-        engine::KEY_NUMPAD9 | engine::KEY_U => Some(Coord(1, 1)),
-        engine::KEY_NUMPAD7 | engine::KEY_Y => Some(Coord(-1, 1)),
-        engine::KEY_NUMPAD5 | engine::KEY_PERIOD => Some(Coord(0, 0)),
-        _ => None
+    if ctrl_key_down || shift_key_down {
+        let vertical_offset =
+            if ctrl_key_down {-1} else {0} +
+            if shift_key_down {1} else {0};
+        match key {
+            engine::KEY_LEFT => Some(Coord(-1, vertical_offset)),
+            engine::KEY_UP => Some(Coord(0, 1)),
+            engine::KEY_RIGHT => Some(Coord(1, vertical_offset)),
+            engine::KEY_DOWN => Some(Coord(0, -1)),
+            _ => None
+        }
+    } else {
+        match key {
+            engine::KEY_LEFT => Some(Coord(-1, 0)),
+            engine::KEY_UP | engine::KEY_NUMPAD8 | engine::KEY_K => Some(Coord(0, 1)),
+            engine::KEY_RIGHT => Some(Coord(1, 0)),
+            engine::KEY_DOWN | engine::KEY_NUMPAD2 | engine::KEY_J => Some(Coord(0, -1)),
+            engine::KEY_NUMPAD1 | engine::KEY_B => Some(Coord(-1, -1)),
+            engine::KEY_NUMPAD4 | engine::KEY_H => Some(Coord(-1, 0)),
+            engine::KEY_NUMPAD6 | engine::KEY_L => Some(Coord(1, 0)),
+            engine::KEY_NUMPAD3 | engine::KEY_N => Some(Coord(1, -1)),
+            engine::KEY_NUMPAD9 | engine::KEY_U => Some(Coord(1, 1)),
+            engine::KEY_NUMPAD7 | engine::KEY_Y => Some(Coord(-1, 1)),
+            engine::KEY_NUMPAD5 | engine::KEY_PERIOD => Some(Coord(0, 0)),
+            _ => None
+        }
     }
 }
 

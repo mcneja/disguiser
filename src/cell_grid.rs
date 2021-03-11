@@ -96,6 +96,8 @@ pub enum ItemKind {
     DoorEW,
     PortcullisNS,
     PortcullisEW,
+    Outfit1,
+    Outfit2,
 }
 
 pub struct Player {
@@ -208,6 +210,8 @@ pub fn guard_move_cost_for_item_kind(kind: ItemKind) -> usize {
         ItemKind::DoorEW => 0,
         ItemKind::PortcullisNS => 0,
         ItemKind::PortcullisEW => 0,
+        ItemKind::Outfit1 => INFINITE_COST,
+        ItemKind::Outfit2 => INFINITE_COST,
     }
 }
 
@@ -311,6 +315,12 @@ impl Map {
 pub fn collect_loot_at(&mut self, pos: Coord) -> usize {
     let mut gold = 0;
     self.items.retain(|item| if item.kind == ItemKind::Coin && item.pos == pos {gold += 1; false} else {true});
+    gold
+}
+
+pub fn collect_all_loot(&mut self) -> usize {
+    let mut gold = 0;
+    self.items.retain(|item| if item.kind == ItemKind::Coin {gold += 1; false} else {true});
     gold
 }
 
@@ -459,12 +469,22 @@ fn compute_visibility(
 }
 
 pub fn all_loot_collected(&self) -> bool {
-    for item in &self.items {
-        if item.kind == ItemKind::Coin {
-            return false;
+    !self.items.iter().any(|item| item.kind == ItemKind::Coin)
+}
+
+pub fn try_use_outfit_at(&mut self, pos: Coord, outfit_cur: ItemKind) -> Option<ItemKind> {
+    if let Some(item) = self.items.iter_mut().find(|item| item.pos == pos && (item.kind == ItemKind::Outfit1 || item.kind == ItemKind::Outfit2)) {
+        if item.kind != outfit_cur {
+            let outfit_new = item.kind;
+            item.kind = outfit_cur;
+            return Some(outfit_new);
         }
     }
-    true
+    None
+}
+
+pub fn is_outfit_at(&self, pos: Coord) -> bool {
+    self.items.iter().any(|item| (item.kind == ItemKind::Outfit1 || item.kind == ItemKind::Outfit2) && item.pos == pos)
 }
 
 pub fn random_neighbor_region(&self, random: &mut Random, region: usize, region_exclude: usize) -> usize {

@@ -1,12 +1,11 @@
-use crate::cell_grid::*;
+use crate::cell_grid::{CellType, INFINITE_COST, INVALID_REGION, Map, Player, Random};
 use crate::color_preset;
 use crate::coord::Coord;
-use rand::prelude::*;
-use std::cmp::min;
-use std::cmp::max;
-use multiarray::Array2D;
-
 use crate::speech_bubbles::Popups;
+
+use multiarray::Array2D;
+use rand::Rng;
+use std::cmp::{min, max};
 
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum GuardMode
@@ -355,8 +354,8 @@ pub fn overhead_icon_and_color(&self, map: &Map, player: &Player, see_all: bool)
         return Some((216, color_preset::LIGHT_YELLOW));
     }
 
-    if (self.seer || !player.disguised) && visible && cell.lit {
-        return Some((219, color_preset::WHITE));
+    if self.seer && visible && cell.lit {
+        return Some((219, color_preset::LIGHT_YELLOW));
     }
 
     None
@@ -427,7 +426,7 @@ fn patrol_step(&mut self, map: &Map, player: &mut Player, random: &mut Random) {
         self.region_goal = map.random_neighbor_region(random, self.region_goal, region_prev);
     }
 
-    if bumped_thief {
+    if bumped_thief && (self.seer || !player.disguised) {
         self.mode = GuardMode::ChaseVisibleTarget;
         self.goal = player.pos;
         self.dir = update_dir(self.dir, self.goal - self.pos);
