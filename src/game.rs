@@ -100,6 +100,8 @@ pub fn on_draw(game: &Game, screen_size_x: i32, screen_size_y: i32) {
 
     // Base map
 
+    const UNLIT_COLOR: u32 = color_preset::LIGHT_BLUE;
+
     for x in 0..map_size_x {
         for y in 0..map_size_y {
             let cell = &map.cells[[x, y]];
@@ -107,7 +109,7 @@ pub fn on_draw(game: &Game, screen_size_x: i32, screen_size_y: i32) {
                 continue;
             }
             let tile = tile_def(cell.cell_type);
-            let color = if cell.lit || tile.ignores_lighting {tile.color} else {color_preset::DARK_BLUE};
+            let color = if cell.lit || tile.ignores_lighting {tile.color} else {UNLIT_COLOR};
             put_tile(tile.glyph, x as i32, y as i32, color);
         }
     }
@@ -120,7 +122,7 @@ pub fn on_draw(game: &Game, screen_size_x: i32, screen_size_y: i32) {
             continue;
         }
         let glyph = glyph_for_item(item.kind);
-        let color = if cell.lit {color_for_item(item.kind)} else {color_preset::DARK_BLUE};
+        let color = if cell.lit {color_for_item(item.kind)} else {UNLIT_COLOR};
         put_tile(glyph, item.pos.0, item.pos.1, color);
     }
 
@@ -189,7 +191,7 @@ pub fn on_draw(game: &Game, screen_size_x: i32, screen_size_y: i32) {
             if !visible {
                 color_preset::DARK_GRAY
             } else if guard.mode == GuardMode::Patrol && !guard.speaking && !cell.lit {
-                color_preset::DARK_BLUE
+                UNLIT_COLOR
             } else {
                 color_preset::LIGHT_MAGENTA
             };
@@ -449,7 +451,7 @@ fn make_noise(map: &mut Map, player: &mut Player, popups: &mut Popups, noise: &'
 }
 
 fn halts_slide(map: &Map, pos: Coord) -> bool {
-    if pos.0 < 0 || pos.0 >= map.cells.extents()[0] as i32 || pos.1 < 0 || pos.1 >= map.cells.extents()[1] as i32 {
+    if !on_level(&map.cells, pos) {
         return false;
     }
 
