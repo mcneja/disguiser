@@ -6,7 +6,7 @@ use crate::color_preset;
 use crate::coord::Coord;
 use crate::engine;
 use crate::fontdata;
-use crate::guard::{GuardMode, Lines, guard_act_all, is_guard_at, new_lines, update_dir};
+use crate::guard::{GuardMode, Lines, guard_act_all, new_lines, update_dir};
 use crate::random_map;
 use crate::speech_bubbles::{get_horizontal_extents, puts_proportional, new_popups, Popups};
 
@@ -453,7 +453,11 @@ fn halts_slide(map: &Map, pos: Coord) -> bool {
         return false;
     }
 
-    if is_guard_at(map, pos.0, pos.1) {
+    if map.is_guard_at(pos) {
+        return true;
+    }
+
+    if map.is_outfit_at(pos) {
         return true;
     }
 
@@ -537,7 +541,7 @@ fn blocked(map: &Map, pos_old: Coord, pos_new: Coord) -> bool {
         return true;
     }
 
-    if is_guard_at(map, pos_new.0, pos_new.1) {
+    if map.is_guard_at(pos_new) {
         return true;
     }
 

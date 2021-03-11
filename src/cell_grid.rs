@@ -483,6 +483,10 @@ pub fn try_use_outfit_at(&mut self, pos: Coord, outfit_cur: ItemKind) -> Option<
     None
 }
 
+pub fn is_guard_at(&self, pos: Coord) -> bool {
+    self.guards.iter().any(|guard| guard.pos == pos)
+}
+
 pub fn is_outfit_at(&self, pos: Coord) -> bool {
     self.items.iter().any(|item| (item.kind == ItemKind::Outfit1 || item.kind == ItemKind::Outfit2) && item.pos == pos)
 }

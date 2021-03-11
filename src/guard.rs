@@ -45,15 +45,6 @@ struct Shout {
     pos_target: Coord, // where are they reporting the player is?
 }
 
-pub fn is_guard_at(map: &Map, x: i32, y: i32) -> bool {
-    for guard in &map.guards {
-        if guard.pos.0 == x && guard.pos.1 == y {
-            return true;
-        }
-    }
-    return false;
-}
-
 pub fn guard_act_all(random: &mut Random, see_all: bool, popups: &mut Popups, lines: &mut Lines, map: &mut Map, player: &mut Player) {
 
     // Mark if we heard a guard last turn, and clear the speaking flag.
