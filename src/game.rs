@@ -501,7 +501,7 @@ fn update_map_visibility(map: &mut Map, pos_viewer: Coord) {
 
     for dir in &DIRS {
         let pos = pos_viewer + *dir;
-        if !blocked(map, pos_viewer, pos) {
+        if map.player_can_see_in_direction(pos_viewer, *dir) {
             map.recompute_visibility(pos);
         }
     }

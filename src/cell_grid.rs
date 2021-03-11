@@ -376,6 +376,14 @@ pub fn recompute_visibility(&mut self, pos_viewer: Coord) {
     }
 }
 
+pub fn player_can_see_in_direction(&self, pos_viewer: Coord, dir: Coord) -> bool {
+    let pos_target = pos_viewer + dir;
+    if !allowed_direction(self.cells[[pos_target.0 as usize, pos_target.1 as usize]].cell_type, dir.0, dir.1) {
+        return false;
+    }
+    !self.blocks_player_sight(pos_target.0, pos_target.1)
+}
+
 fn compute_visibility(
     &mut self,
     // Viewer map coordinates:
