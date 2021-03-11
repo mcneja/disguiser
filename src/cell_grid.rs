@@ -238,10 +238,8 @@ impl Player {
     }
 
     pub fn hidden(&self, map: &Map) -> bool {
-        for guard in &map.guards {
-            if guard.mode == guard::GuardMode::ChaseVisibleTarget {
-                return false;
-            }
+        if map.guards.iter().any(|guard| guard.mode == guard::GuardMode::ChaseVisibleTarget) {
+            return false;
         }
 
         if map.hides_player(self.pos.0, self.pos.1) {
@@ -530,16 +528,6 @@ pub fn guard_move_cost(&self, pos_old: Coord, pos_new: Coord) -> usize {
     }
 
     cost
-}
-
-pub fn pos_blocked_by_guard(&self, pos: Coord) -> bool {
-    for guard in &self.guards {
-        if guard.pos == pos {
-            return true;
-        }
-    }
-
-    false
 }
 
 pub fn closest_region(&self, pos: Coord) -> usize {

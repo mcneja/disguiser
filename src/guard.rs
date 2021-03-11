@@ -101,7 +101,7 @@ fn pos_next_best(map: &Map, distance_field: &Array2D<usize>, pos_from: Coord) ->
                 continue;
             }
 
-            if map.pos_blocked_by_guard(pos) {
+            if map.is_guard_at(pos) {
                 continue;
             }
 
