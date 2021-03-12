@@ -110,7 +110,6 @@ pub struct Player {
 
     pub noisy: bool, // did the player make noise last turn?
     pub damaged_last_turn: bool,
-    pub finished_level: bool,
 
     pub turns_remaining_underwater: usize,
 }
@@ -226,7 +225,6 @@ pub fn make_player(pos: Coord) -> Player {
         disguised: false,
         noisy: false,
         damaged_last_turn: false,
-        finished_level: false,
         turns_remaining_underwater: 0,
     }
 }
