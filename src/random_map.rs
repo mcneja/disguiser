@@ -1861,7 +1861,7 @@ fn cache_cell_info(map: &mut Map) {
             cell.blocks_player_sight = tile.blocks_player_sight;
             cell.blocks_sight = tile.blocks_sight;
             cell.blocks_sound = tile.blocks_sound;
-            cell.hides_player = tile.hides_player;
+            cell.hides_player = false;
         }
     }
 

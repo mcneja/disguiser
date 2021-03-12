@@ -122,45 +122,44 @@ pub struct Tile {
     pub blocks_player_sight: bool,
     pub blocks_sight: bool,
     pub blocks_sound: bool,
-    pub hides_player: bool,
     pub ignores_lighting: bool,
 }
 
 pub fn tile_def(tile_type: CellType) -> &'static Tile {
     match tile_type {
-        CellType::GroundNormal     => &Tile { glyph: 128, color: color_preset::LIGHT_GRAY, blocks_player: false, blocks_player_sight: false, blocks_sight: false, blocks_sound: false, hides_player: false, ignores_lighting: false },
-        CellType::GroundGrass      => &Tile { glyph: 132, color: color_preset::DARK_GREEN, blocks_player: false, blocks_player_sight: false, blocks_sight: false, blocks_sound: false, hides_player: false, ignores_lighting: false },
-        CellType::GroundWater      => &Tile { glyph: 134, color: color_preset::LIGHT_BLUE, blocks_player: false, blocks_player_sight: false, blocks_sight: false, blocks_sound: false, hides_player: false, ignores_lighting: false },
-        CellType::GroundMarble     => &Tile { glyph: 136, color: color_preset::DARK_CYAN, blocks_player: false, blocks_player_sight: false, blocks_sight: false, blocks_sound: false, hides_player: false, ignores_lighting: false },
-        CellType::GroundWood       => &Tile { glyph: 138, color: color_preset::DARK_BROWN, blocks_player: false, blocks_player_sight: false, blocks_sight: false, blocks_sound: false, hides_player: false, ignores_lighting: false },
-        CellType::GroundWoodCreaky => &Tile { glyph: 138, color: color_preset::DARK_BROWN, blocks_player: false, blocks_player_sight: false, blocks_sight: false, blocks_sound: false, hides_player: false, ignores_lighting: false },
+        CellType::GroundNormal     => &Tile { glyph: 128, color: color_preset::LIGHT_GRAY, blocks_player: false, blocks_player_sight: false, blocks_sight: false, blocks_sound: false, ignores_lighting: false },
+        CellType::GroundGrass      => &Tile { glyph: 132, color: color_preset::DARK_GREEN, blocks_player: false, blocks_player_sight: false, blocks_sight: false, blocks_sound: false, ignores_lighting: false },
+        CellType::GroundWater      => &Tile { glyph: 134, color: color_preset::LIGHT_BLUE, blocks_player: false, blocks_player_sight: false, blocks_sight: false, blocks_sound: false, ignores_lighting: false },
+        CellType::GroundMarble     => &Tile { glyph: 136, color: color_preset::DARK_CYAN, blocks_player: false, blocks_player_sight: false, blocks_sight: false, blocks_sound: false, ignores_lighting: false },
+        CellType::GroundWood       => &Tile { glyph: 138, color: color_preset::DARK_BROWN, blocks_player: false, blocks_player_sight: false, blocks_sight: false, blocks_sound: false, ignores_lighting: false },
+        CellType::GroundWoodCreaky => &Tile { glyph: 138, color: color_preset::DARK_BROWN, blocks_player: false, blocks_player_sight: false, blocks_sight: false, blocks_sound: false, ignores_lighting: false },
 
                   //  NSEW
-        CellType::Wall0000 => &Tile { glyph: 176, color: color_preset::LIGHT_GRAY, blocks_player: true, blocks_player_sight: false, blocks_sight: true, blocks_sound: true, hides_player: false, ignores_lighting: true },
-        CellType::Wall0001 => &Tile { glyph: 177, color: color_preset::LIGHT_GRAY, blocks_player: true, blocks_player_sight: true, blocks_sight: true, blocks_sound: true, hides_player: false, ignores_lighting: true },
-        CellType::Wall0010 => &Tile { glyph: 177, color: color_preset::LIGHT_GRAY, blocks_player: true, blocks_player_sight: true, blocks_sight: true, blocks_sound: true, hides_player: false, ignores_lighting: true },
-        CellType::Wall0011 => &Tile { glyph: 177, color: color_preset::LIGHT_GRAY, blocks_player: true, blocks_player_sight: true, blocks_sight: true, blocks_sound: true, hides_player: false, ignores_lighting: true },
-        CellType::Wall0100 => &Tile { glyph: 178, color: color_preset::LIGHT_GRAY, blocks_player: true, blocks_player_sight: true, blocks_sight: true, blocks_sound: true, hides_player: false, ignores_lighting: true },
-        CellType::Wall0101 => &Tile { glyph: 179, color: color_preset::LIGHT_GRAY, blocks_player: true, blocks_player_sight: true, blocks_sight: true, blocks_sound: true, hides_player: false, ignores_lighting: true },
-        CellType::Wall0110 => &Tile { glyph: 182, color: color_preset::LIGHT_GRAY, blocks_player: true, blocks_player_sight: true, blocks_sight: true, blocks_sound: true, hides_player: false, ignores_lighting: true },
-        CellType::Wall0111 => &Tile { glyph: 185, color: color_preset::LIGHT_GRAY, blocks_player: true, blocks_player_sight: true, blocks_sight: true, blocks_sound: true, hides_player: false, ignores_lighting: true },
-        CellType::Wall1000 => &Tile { glyph: 178, color: color_preset::LIGHT_GRAY, blocks_player: true, blocks_player_sight: true, blocks_sight: true, blocks_sound: true, hides_player: false, ignores_lighting: true },
-        CellType::Wall1001 => &Tile { glyph: 180, color: color_preset::LIGHT_GRAY, blocks_player: true, blocks_player_sight: true, blocks_sight: true, blocks_sound: true, hides_player: false, ignores_lighting: true },
-        CellType::Wall1010 => &Tile { glyph: 181, color: color_preset::LIGHT_GRAY, blocks_player: true, blocks_player_sight: true, blocks_sight: true, blocks_sound: true, hides_player: false, ignores_lighting: true },
-        CellType::Wall1011 => &Tile { glyph: 184, color: color_preset::LIGHT_GRAY, blocks_player: true, blocks_player_sight: true, blocks_sight: true, blocks_sound: true, hides_player: false, ignores_lighting: true },
-        CellType::Wall1100 => &Tile { glyph: 178, color: color_preset::LIGHT_GRAY, blocks_player: true, blocks_player_sight: true, blocks_sight: true, blocks_sound: true, hides_player: false, ignores_lighting: true },
-        CellType::Wall1101 => &Tile { glyph: 186, color: color_preset::LIGHT_GRAY, blocks_player: true, blocks_player_sight: true, blocks_sight: true, blocks_sound: true, hides_player: false, ignores_lighting: true },
-        CellType::Wall1110 => &Tile { glyph: 183, color: color_preset::LIGHT_GRAY, blocks_player: true, blocks_player_sight: true, blocks_sight: true, blocks_sound: true, hides_player: false, ignores_lighting: true },
-        CellType::Wall1111 => &Tile { glyph: 187, color: color_preset::LIGHT_GRAY, blocks_player: true, blocks_player_sight: true, blocks_sight: true, blocks_sound: true, hides_player: false, ignores_lighting: true },
+        CellType::Wall0000 => &Tile { glyph: 176, color: color_preset::LIGHT_GRAY, blocks_player: true, blocks_player_sight: false, blocks_sight: true, blocks_sound: true, ignores_lighting: true },
+        CellType::Wall0001 => &Tile { glyph: 177, color: color_preset::LIGHT_GRAY, blocks_player: true, blocks_player_sight: true, blocks_sight: true, blocks_sound: true, ignores_lighting: true },
+        CellType::Wall0010 => &Tile { glyph: 177, color: color_preset::LIGHT_GRAY, blocks_player: true, blocks_player_sight: true, blocks_sight: true, blocks_sound: true, ignores_lighting: true },
+        CellType::Wall0011 => &Tile { glyph: 177, color: color_preset::LIGHT_GRAY, blocks_player: true, blocks_player_sight: true, blocks_sight: true, blocks_sound: true, ignores_lighting: true },
+        CellType::Wall0100 => &Tile { glyph: 178, color: color_preset::LIGHT_GRAY, blocks_player: true, blocks_player_sight: true, blocks_sight: true, blocks_sound: true, ignores_lighting: true },
+        CellType::Wall0101 => &Tile { glyph: 179, color: color_preset::LIGHT_GRAY, blocks_player: true, blocks_player_sight: true, blocks_sight: true, blocks_sound: true, ignores_lighting: true },
+        CellType::Wall0110 => &Tile { glyph: 182, color: color_preset::LIGHT_GRAY, blocks_player: true, blocks_player_sight: true, blocks_sight: true, blocks_sound: true, ignores_lighting: true },
+        CellType::Wall0111 => &Tile { glyph: 185, color: color_preset::LIGHT_GRAY, blocks_player: true, blocks_player_sight: true, blocks_sight: true, blocks_sound: true, ignores_lighting: true },
+        CellType::Wall1000 => &Tile { glyph: 178, color: color_preset::LIGHT_GRAY, blocks_player: true, blocks_player_sight: true, blocks_sight: true, blocks_sound: true, ignores_lighting: true },
+        CellType::Wall1001 => &Tile { glyph: 180, color: color_preset::LIGHT_GRAY, blocks_player: true, blocks_player_sight: true, blocks_sight: true, blocks_sound: true, ignores_lighting: true },
+        CellType::Wall1010 => &Tile { glyph: 181, color: color_preset::LIGHT_GRAY, blocks_player: true, blocks_player_sight: true, blocks_sight: true, blocks_sound: true, ignores_lighting: true },
+        CellType::Wall1011 => &Tile { glyph: 184, color: color_preset::LIGHT_GRAY, blocks_player: true, blocks_player_sight: true, blocks_sight: true, blocks_sound: true, ignores_lighting: true },
+        CellType::Wall1100 => &Tile { glyph: 178, color: color_preset::LIGHT_GRAY, blocks_player: true, blocks_player_sight: true, blocks_sight: true, blocks_sound: true, ignores_lighting: true },
+        CellType::Wall1101 => &Tile { glyph: 186, color: color_preset::LIGHT_GRAY, blocks_player: true, blocks_player_sight: true, blocks_sight: true, blocks_sound: true, ignores_lighting: true },
+        CellType::Wall1110 => &Tile { glyph: 183, color: color_preset::LIGHT_GRAY, blocks_player: true, blocks_player_sight: true, blocks_sight: true, blocks_sound: true, ignores_lighting: true },
+        CellType::Wall1111 => &Tile { glyph: 187, color: color_preset::LIGHT_GRAY, blocks_player: true, blocks_player_sight: true, blocks_sight: true, blocks_sound: true, ignores_lighting: true },
 
-        CellType::OneWayWindowE => &Tile { glyph: 196, color: color_preset::LIGHT_GRAY, blocks_player: false, blocks_player_sight: false, blocks_sight: true, blocks_sound: false, hides_player: false, ignores_lighting: true },
-        CellType::OneWayWindowW => &Tile { glyph: 197, color: color_preset::LIGHT_GRAY, blocks_player: false, blocks_player_sight: false, blocks_sight: true, blocks_sound: false, hides_player: false, ignores_lighting: true },
-        CellType::OneWayWindowN => &Tile { glyph: 198, color: color_preset::LIGHT_GRAY, blocks_player: false, blocks_player_sight: false, blocks_sight: true, blocks_sound: false, hides_player: false, ignores_lighting: true },
-        CellType::OneWayWindowS => &Tile { glyph: 199, color: color_preset::LIGHT_GRAY, blocks_player: false, blocks_player_sight: false, blocks_sight: true, blocks_sound: false, hides_player: false, ignores_lighting: true },
-        CellType::PortcullisNS  => &Tile { glyph: 128, color: color_preset::LIGHT_GRAY, blocks_player: false, blocks_player_sight: false, blocks_sight: false, blocks_sound: false, hides_player: false, ignores_lighting: true },
-        CellType::PortcullisEW  => &Tile { glyph: 128, color: color_preset::LIGHT_GRAY, blocks_player: false, blocks_player_sight: false, blocks_sight: false, blocks_sound: false, hides_player: false, ignores_lighting: true },
-        CellType::DoorNS        => &Tile { glyph: 189, color: color_preset::LIGHT_GRAY, blocks_player: false, blocks_player_sight: false, blocks_sight: false, blocks_sound: false, hides_player: false, ignores_lighting: true },
-        CellType::DoorEW        => &Tile { glyph: 188, color: color_preset::LIGHT_GRAY, blocks_player: false, blocks_player_sight: false, blocks_sight: false, blocks_sound: false, hides_player: false, ignores_lighting: true },
+        CellType::OneWayWindowE => &Tile { glyph: 196, color: color_preset::LIGHT_GRAY, blocks_player: false, blocks_player_sight: false, blocks_sight: true, blocks_sound: false, ignores_lighting: true },
+        CellType::OneWayWindowW => &Tile { glyph: 197, color: color_preset::LIGHT_GRAY, blocks_player: false, blocks_player_sight: false, blocks_sight: true, blocks_sound: false, ignores_lighting: true },
+        CellType::OneWayWindowN => &Tile { glyph: 198, color: color_preset::LIGHT_GRAY, blocks_player: false, blocks_player_sight: false, blocks_sight: true, blocks_sound: false, ignores_lighting: true },
+        CellType::OneWayWindowS => &Tile { glyph: 199, color: color_preset::LIGHT_GRAY, blocks_player: false, blocks_player_sight: false, blocks_sight: true, blocks_sound: false, ignores_lighting: true },
+        CellType::PortcullisNS  => &Tile { glyph: 128, color: color_preset::LIGHT_GRAY, blocks_player: false, blocks_player_sight: false, blocks_sight: false, blocks_sound: false, ignores_lighting: true },
+        CellType::PortcullisEW  => &Tile { glyph: 128, color: color_preset::LIGHT_GRAY, blocks_player: false, blocks_player_sight: false, blocks_sight: false, blocks_sound: false, ignores_lighting: true },
+        CellType::DoorNS        => &Tile { glyph: 189, color: color_preset::LIGHT_GRAY, blocks_player: false, blocks_player_sight: false, blocks_sight: false, blocks_sound: false, ignores_lighting: true },
+        CellType::DoorEW        => &Tile { glyph: 188, color: color_preset::LIGHT_GRAY, blocks_player: false, blocks_player_sight: false, blocks_sight: false, blocks_sound: false, ignores_lighting: true },
     }
 }
 
@@ -240,7 +239,7 @@ impl Player {
             return false;
         }
 
-        if map.hides_player(self.pos.0, self.pos.1) {
+        if !self.disguised && map.hides_player(self.pos.0, self.pos.1) {
             return true;
         }
 
