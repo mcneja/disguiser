@@ -428,6 +428,7 @@ fn try_use_in_direction(game: &mut Game, dpos: Coord) {
     if let Some(outfit_new) = game.map.try_use_outfit_at(pos, if game.player.disguised {ItemKind::Outfit2} else {ItemKind::Outfit1}) {
         pre_turn(game);
         game.player.disguised = outfit_new != ItemKind::Outfit1;
+        game.player.dir = update_dir(game.player.dir, dpos);
         advance_time(game);
         engine::invalidate_screen();
     }
