@@ -574,6 +574,9 @@ fn on_key_down_game_mode(game: &mut Game, key: i32, ctrl_key_down: bool, shift_k
             engine::KEY_C => {
                 game.map.mark_all_unseen();
                 update_map_visibility(&mut game.map, game.player.pos);
+                if !game.map.all_seen() {
+                    game.finished_level = false;
+                }
                 engine::invalidate_screen();
             },
             engine::KEY_D => {
