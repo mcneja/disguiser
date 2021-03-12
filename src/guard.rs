@@ -21,16 +21,14 @@ pub enum GuardMode {
 
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum GuardKind {
-    Guard,
-    Servant,
-    Noble,
+    Outer,
+    Inner,
 }
 
 pub fn color_for_guard_kind(kind: GuardKind) -> u32 {
     match kind {
-        GuardKind::Guard => color_preset::LIGHT_MAGENTA,
-        GuardKind::Servant => color_preset::LIGHT_CYAN,
-        GuardKind::Noble => color_preset::LIGHT_GREEN,
+        GuardKind::Outer => color_preset::LIGHT_MAGENTA,
+        GuardKind::Inner => color_preset::LIGHT_CYAN,
     }
 }
 

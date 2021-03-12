@@ -6,7 +6,7 @@ use crate::color_preset;
 use crate::coord::Coord;
 use crate::engine;
 use crate::fontdata;
-use crate::guard::{GuardKind, GuardMode, Lines, color_for_guard_kind, guard_act_all, new_lines, update_dir};
+use crate::guard::{GuardMode, Lines, color_for_guard_kind, guard_act_all, new_lines, update_dir};
 use crate::random_map;
 use crate::speech_bubbles::{get_horizontal_extents, puts_proportional, new_popups, Popups};
 
@@ -15,7 +15,7 @@ const BAR_BACKGROUND_COLOR: u32 = 0xff101010;
 
 const TILE_SIZE: i32 = 16;
 
-const INITIAL_LEVEL: usize = 20;
+const INITIAL_LEVEL: usize = 0;
 const SEE_ALL_DEFAULT: bool = false;
 
 pub struct Game {
@@ -322,10 +322,7 @@ fn glyph_for_item(kind: ItemKind) -> u32 {
         ItemKind::DoorEW => 167,
         ItemKind::PortcullisNS => 194,
         ItemKind::PortcullisEW => 194,
-        ItemKind::OutfitThief => 163,
-        ItemKind::OutfitGuard => 163,
-        ItemKind::OutfitServant => 163,
-        ItemKind::OutfitNoble => 163,
+        ItemKind::Outfit(_) => 163,
     }
 }
 
@@ -339,10 +336,8 @@ fn color_for_item(kind: ItemKind) -> u32 {
         ItemKind::DoorEW => color_preset::DARK_BROWN,
         ItemKind::PortcullisNS => color_preset::LIGHT_GRAY,
         ItemKind::PortcullisEW => color_preset::LIGHT_GRAY,
-        ItemKind::OutfitThief => color_preset::LIGHT_GRAY,
-        ItemKind::OutfitGuard => color_preset::LIGHT_MAGENTA,
-        ItemKind::OutfitServant => color_preset::LIGHT_CYAN,
-        ItemKind::OutfitNoble => color_preset::LIGHT_GREEN,
+        ItemKind::Outfit(None) => color_preset::LIGHT_GRAY,
+        ItemKind::Outfit(Some(guard_kind)) => color_for_guard_kind(guard_kind),
     }
 }
 
@@ -427,31 +422,11 @@ fn move_player(game: &mut Game, mut dpos: Coord) {
     engine::invalidate_screen();
 }
 
-fn guard_kind_from_outfit_kind(kind: ItemKind) -> Option<GuardKind> {
-    match kind {
-        ItemKind::OutfitGuard => Some(GuardKind::Guard),
-        ItemKind::OutfitServant => Some(GuardKind::Servant),
-        ItemKind::OutfitNoble => Some(GuardKind::Noble),
-        _ => {None}
-    }
-}
-
-fn outfit_kind_from_guard_kind(maybe_kind: Option<GuardKind>) -> ItemKind {
-    match maybe_kind {
-        None => ItemKind::OutfitThief,
-        Some(kind) => match kind {
-            GuardKind::Guard => ItemKind::OutfitGuard,
-            GuardKind::Servant => ItemKind::OutfitServant,
-            GuardKind::Noble => ItemKind::OutfitNoble,
-        }
-    }
-}
-
 fn try_use_in_direction(game: &mut Game, dpos: Coord) {
     let pos = game.player.pos + dpos;
-    if let Some(outfit_new) = game.map.try_use_outfit_at(pos, outfit_kind_from_guard_kind(game.player.disguise)) {
+    if let Some(outfit_new) = game.map.try_use_outfit_at(pos, game.player.disguise) {
         pre_turn(game);
-        game.player.disguise = guard_kind_from_outfit_kind(outfit_new);
+        game.player.disguise = outfit_new;
         game.player.dir = update_dir(game.player.dir, dpos);
         advance_time(game);
         engine::invalidate_screen();

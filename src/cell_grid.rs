@@ -96,10 +96,7 @@ pub enum ItemKind {
     DoorEW,
     PortcullisNS,
     PortcullisEW,
-    OutfitThief,
-    OutfitGuard,
-    OutfitServant,
-    OutfitNoble,
+    Outfit(Option<guard::GuardKind>),
 }
 
 pub struct Player {
@@ -210,22 +207,7 @@ pub fn guard_move_cost_for_item_kind(kind: ItemKind) -> usize {
         ItemKind::DoorEW => 0,
         ItemKind::PortcullisNS => 0,
         ItemKind::PortcullisEW => 0,
-        ItemKind::OutfitThief => INFINITE_COST,
-        ItemKind::OutfitGuard => INFINITE_COST,
-        ItemKind::OutfitServant => INFINITE_COST,
-        ItemKind::OutfitNoble => INFINITE_COST,
-    }
-}
-
-fn is_outfit_kind(kind: ItemKind) -> bool {
-    match kind {
-        ItemKind::OutfitThief |
-        ItemKind::OutfitGuard |
-        ItemKind::OutfitServant |
-        ItemKind::OutfitNoble => {
-            true
-        }
-        _ => {false}
+        ItemKind::Outfit(_) => INFINITE_COST,
     }
 }
 
@@ -480,12 +462,16 @@ pub fn all_loot_collected(&self) -> bool {
     !self.items.iter().any(|item| item.kind == ItemKind::Coin)
 }
 
-pub fn try_use_outfit_at(&mut self, pos: Coord, outfit_cur: ItemKind) -> Option<ItemKind> {
-    if let Some(item) = self.items.iter_mut().find(|item| item.pos == pos && is_outfit_kind(item.kind) && item.kind != outfit_cur) {
-        if item.kind != outfit_cur {
-            let outfit_new = item.kind;
-            item.kind = outfit_cur;
-            return Some(outfit_new);
+pub fn try_use_outfit_at(&mut self, pos: Coord, outfit_cur: Option<guard::GuardKind>) -> Option<Option<guard::GuardKind>> {
+    for item in self.items.iter_mut() {
+        if item.pos != pos {
+            continue;
+        }
+        if let ItemKind::Outfit(outfit_new) = item.kind {
+            if outfit_new != outfit_cur {
+                item.kind = ItemKind::Outfit(outfit_cur);
+                return Some(outfit_new);
+            }
         }
     }
     None
@@ -496,7 +482,7 @@ pub fn is_guard_at(&self, pos: Coord) -> bool {
 }
 
 pub fn is_outfit_at(&self, pos: Coord) -> bool {
-    self.items.iter().any(|item| (is_outfit_kind(item.kind)) && item.pos == pos)
+    self.items.iter().any(|item| matches!(item.kind, ItemKind::Outfit(_)) && item.pos == pos)
 }
 
 pub fn random_neighbor_region(&self, random: &mut Random, region: usize, region_exclude: usize) -> usize {
