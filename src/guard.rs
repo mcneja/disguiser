@@ -213,11 +213,18 @@ fn hear_guard(&mut self, pos_target: Coord) {
 fn act(&mut self, random: &mut Random, see_all: bool, popups: &mut Popups, lines: &mut Lines, player: &mut Player, map: &Map, shouts: &mut Vec<Shout>) {
 
     let mode_prev = self.mode;
-    let pos_prev = self.pos;
 
-    // Sight- and hearing-based state changes
+    // If we're already vigilant and we can see the player at the start of our turn,
+    // go directly into chase mode so we can immediately move toward the player.
 
-    self.update_state_based_on_sight(random, map, player);
+    if self.mode != GuardMode::Patrol && self.sees_thief(map, player) {
+        self.mode = GuardMode::ChaseVisibleTarget;
+        self.goal = player.pos;
+        self.dir = update_dir(self.dir, self.goal - self.pos);
+    }
+
+    // Hearing-based state changes
+
     self.update_state_based_on_hearing(random, player);
 
     // Pass time in the current mode
@@ -261,10 +268,21 @@ fn act(&mut self, random: &mut Random, see_all: bool, popups: &mut Popups, lines
         },
     }
 
-    // If we moved, update state based on target visibility from new position
+    // Update state based on target visibility from new position
 
-    if self.pos != pos_prev {
-        self.update_state_based_on_sight(random, map, player);
+    if self.sees_thief(map, player) {
+        if self.mode == GuardMode::Patrol && (player.disguised || !self.adjacent_to(player.pos)) {
+            self.mode = if player.disguised {GuardMode::LookAtDisguised} else {GuardMode::Look};
+            self.mode_timeout = random.gen_range(3..6);
+        } else {
+            self.mode = GuardMode::ChaseVisibleTarget;
+            self.goal = player.pos;
+            self.dir = update_dir(self.dir, self.goal - self.pos);
+        }
+    } else if self.mode == GuardMode::ChaseVisibleTarget {
+        self.mode = GuardMode::MoveToLastSighting;
+        self.mode_timeout = 3;
+        self.goal = player.pos;
     }
 
     // Clear heard-thief flag
@@ -281,23 +299,6 @@ fn act(&mut self, random: &mut Random, see_all: bool, popups: &mut Popups, lines
 
     if self.mode == GuardMode::ChaseVisibleTarget && mode_prev != GuardMode::ChaseVisibleTarget {
         shouts.push(Shout{pos_shouter: self.pos, pos_target: player.pos});
-    }
-}
-
-fn update_state_based_on_sight(&mut self, random: &mut Random, map: &Map, player: &Player) {
-    if self.sees_thief(map, player) {
-        if self.mode == GuardMode::Patrol && (player.disguised || !self.adjacent_to(player.pos)) {
-            self.mode = if player.disguised {GuardMode::LookAtDisguised} else {GuardMode::Look};
-            self.mode_timeout = random.gen_range(3..6);
-        } else {
-            self.mode = GuardMode::ChaseVisibleTarget;
-            self.goal = player.pos;
-            self.dir = update_dir(self.dir, self.goal - self.pos);
-        }
-    } else if self.mode == GuardMode::ChaseVisibleTarget {
-        self.mode = GuardMode::MoveToLastSighting;
-        self.mode_timeout = 3;
-        self.goal = player.pos;
     }
 }
 
