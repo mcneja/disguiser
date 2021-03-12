@@ -6,7 +6,7 @@ use crate::color_preset;
 use crate::coord::Coord;
 use crate::engine;
 use crate::fontdata;
-use crate::guard::{GuardMode, Lines, guard_act_all, new_lines, update_dir};
+use crate::guard::{GuardKind, GuardMode, Lines, color_for_guard_kind, guard_act_all, new_lines, update_dir};
 use crate::random_map;
 use crate::speech_bubbles::{get_horizontal_extents, puts_proportional, new_popups, Popups};
 
@@ -15,7 +15,7 @@ const BAR_BACKGROUND_COLOR: u32 = 0xff101010;
 
 const TILE_SIZE: i32 = 16;
 
-const INITIAL_LEVEL: usize = 0;
+const INITIAL_LEVEL: usize = 20;
 const SEE_ALL_DEFAULT: bool = false;
 
 pub struct Game {
@@ -126,20 +126,22 @@ pub fn on_draw(game: &Game, screen_size_x: i32, screen_size_y: i32) {
         put_tile(glyph, item.pos.0, item.pos.1, color);
     }
 
-/*
     // Halo around player
 
+    /*
     {
-        let pos = player.pos.mul_components(Coord(TILE_SIZE, TILE_SIZE)) + view_offset + Coord(-8, -8);
+        let pos = player.pos * TILE_SIZE + view_offset + Coord(-8, -8);
         let color = 0x40ffffff;
         draw_tile_by_index(228, pos.0, pos.1, color);
         draw_tile_by_index(229, pos.0 + TILE_SIZE, pos.1, color);
         draw_tile_by_index(230, pos.0, pos.1 + TILE_SIZE, color);
         draw_tile_by_index(231, pos.0 + TILE_SIZE, pos.1 + TILE_SIZE, color);
     }
+    */
 
     // Pointers at player along map edges
 
+    /*
     {
         let pos = player.pos.mul_components(Coord(TILE_SIZE, TILE_SIZE)) + view_offset;
         let view_edge_min = Coord(max(view_offset.0, view_min.0), max(view_offset.1, view_min.1));
@@ -151,12 +153,12 @@ pub fn on_draw(game: &Game, screen_size_x: i32, screen_size_y: i32) {
         draw_tile_by_index(234, pos.0, view_edge_min.1, color);
         draw_tile_by_index(235, pos.0, view_edge_max.1 - TILE_SIZE, color);
     }
-*/
+    */
 
     // Player
 
     {
-        let tile_index = tile_index_offset_for_dir(player.dir) + if player.disguised {212} else {208};
+        let tile_index = tile_index_offset_for_dir(player.dir) + if player.disguise.is_some() {212} else {208};
 
         let lit = map.cells[[player.pos.0 as usize, player.pos.1 as usize]].lit;
         let hidden = player.hidden(map);
@@ -166,7 +168,7 @@ pub fn on_draw(game: &Game, screen_size_x: i32, screen_size_y: i32) {
             else if player.noisy {color_preset::LIGHT_CYAN}
             else if hidden {0xd0101010}
             else if !lit {color_preset::LIGHT_BLUE}
-            else if player.disguised {color_preset::LIGHT_MAGENTA}
+            else if let Some(guard_kind) = player.disguise {color_for_guard_kind(guard_kind)}
             else {color_preset::LIGHT_GRAY};
 
         put_tile(tile_index, player.pos.0, player.pos.1, color);
@@ -193,7 +195,7 @@ pub fn on_draw(game: &Game, screen_size_x: i32, screen_size_y: i32) {
             } else if guard.mode == GuardMode::Patrol && !guard.speaking && !cell.lit {
                 UNLIT_COLOR
             } else {
-                color_preset::LIGHT_MAGENTA
+                color_for_guard_kind(guard.kind)
             };
 
         put_tile(tile_index, guard.pos.0, guard.pos.1, color);
@@ -211,66 +213,50 @@ pub fn on_draw(game: &Game, screen_size_x: i32, screen_size_y: i32) {
 
     put_offset_tile(218, player.pos.0, player.pos.1, color_preset::LIGHT_YELLOW, 0, 10);
 
-/*
+    // Draw a guard's distance field to goal region
+
+    /*
     if let Some(guard) = guards.first() {
-        if guard.region_goal != INVALID_REGION {
+        if guard.region_goal != crate::cell_grid::INVALID_REGION {
             let distance_field = map.compute_distances_to_region(guard.region_goal);
             for x in 0..map_size_x {
                 for y in 0..map_size_y {
-                    let pos = Vector::new(x as f32, ((map_size_y - 1) - y) as f32);
                     let d = distance_field[[x, y]];
-                    if d == 0 || d == INFINITE_COST {
+                    if d == 0 || d == crate::cell_grid::INFINITE_COST {
                         continue;
                     }
                     let digit = (d % 10) + 48;
                     let band = d / 10;
-                    let image = &tileset[digit];
-                    let pos_px = offset_px + TILE_SIZE.times(pos);
                     let color = if band == 0 {color_preset::WHITE} else if band == 1 {color_preset::LIGHT_YELLOW} else {color_preset::DARK_GRAY};
-                    window.draw(
-                        &Rectangle::new(pos_px, image.area().size()),
-                        Blended(&image, color),
-                    )
+                    put_tile(digit as u32, x as i32, y as i32, color);
                 }
             }
         }
     }
-*/
+    */
 
-/*
+    // Highlight a guard's previous and goal regions
+
+    /*
     if let Some(guard) = guards.first() {
-        let image = &tileset[255];
-        if guard.region_prev != INVALID_REGION {
-
+        if guard.region_prev != crate::cell_grid::INVALID_REGION {
+            const COLOR: u32 = 0x400000ff;
             let region = &map.patrol_regions[guard.region_prev];
-            for x in region.pos_min.0 .. region.pos_max.0 {
-                for y in region.pos_min.1 .. region.pos_max.1 {
-                    let pos = Vector::new(x as f32, ((map_size_y - 1) as i32 - y) as f32);
-                    let pos_px = offset_px + TILE_SIZE.times(pos);
-                    let color = Color {r:1.0, g:0.0, b:0.0, a:0.25};
-                    window.draw(
-                        &Rectangle::new(pos_px, image.area().size()),
-                        Blended(&image, color),
-                    )
-                }
-            }
+            let pos = view_offset + region.pos_min * TILE_SIZE;
+            let size = (region.pos_max - region.pos_min) * TILE_SIZE;
+            engine::draw_rect(pos.0, pos.1, size.0, size.1, COLOR);
         }
-        if guard.region_goal != INVALID_REGION {
+        if guard.region_goal != crate::cell_grid::INVALID_REGION {
+            const COLOR: u32 = 0x4000ff00;
             let region = &map.patrol_regions[guard.region_goal];
-            for x in region.pos_min.0 .. region.pos_max.0 {
-                for y in region.pos_min.1 .. region.pos_max.1 {
-                    let pos = Vector::new(x as f32, ((map_size_y - 1) as i32 - y) as f32);
-                    let pos_px = offset_px + TILE_SIZE.times(pos);
-                    let color = Color {r:0.0, g:1.0, b:0.0, a:0.25};
-                    window.draw(
-                        &Rectangle::new(pos_px, image.area().size()),
-                        Blended(&image, color),
-                    )
-                }
-            }
+            let pos = view_offset + region.pos_min * TILE_SIZE;
+            let size = (region.pos_max - region.pos_min) * TILE_SIZE;
+            engine::draw_rect(pos.0, pos.1, size.0, size.1, COLOR);
         }
     }
-*/
+    */
+
+    // Speech bubbles and sounds
 
     if game.show_msgs {
         game.popups.draw(
@@ -281,6 +267,8 @@ pub fn on_draw(game: &Game, screen_size_x: i32, screen_size_y: i32) {
             game.player.pos
         );
     }
+
+    // Help and status
 
     if game.show_help {
         draw_help(screen_size_x, screen_size_y, game.help_page);
@@ -330,8 +318,10 @@ fn glyph_for_item(kind: ItemKind) -> u32 {
         ItemKind::DoorEW => 167,
         ItemKind::PortcullisNS => 194,
         ItemKind::PortcullisEW => 194,
-        ItemKind::Outfit1 => 163,
-        ItemKind::Outfit2 => 163,
+        ItemKind::OutfitThief => 163,
+        ItemKind::OutfitGuard => 163,
+        ItemKind::OutfitServant => 163,
+        ItemKind::OutfitNoble => 163,
     }
 }
 
@@ -345,8 +335,10 @@ fn color_for_item(kind: ItemKind) -> u32 {
         ItemKind::DoorEW => color_preset::DARK_BROWN,
         ItemKind::PortcullisNS => color_preset::LIGHT_GRAY,
         ItemKind::PortcullisEW => color_preset::LIGHT_GRAY,
-        ItemKind::Outfit1 => color_preset::LIGHT_GRAY,
-        ItemKind::Outfit2 => color_preset::LIGHT_MAGENTA,
+        ItemKind::OutfitThief => color_preset::LIGHT_GRAY,
+        ItemKind::OutfitGuard => color_preset::LIGHT_MAGENTA,
+        ItemKind::OutfitServant => color_preset::LIGHT_CYAN,
+        ItemKind::OutfitNoble => color_preset::LIGHT_GREEN,
     }
 }
 
@@ -359,7 +351,7 @@ fn advance_to_next_level(game: &mut Game) {
     game.player.dir = Coord(0, -1);
     game.player.gold = 0;
     game.player.noisy = false;
-    game.player.disguised = false;
+    game.player.disguise = None;
     game.player.damaged_last_turn = false;
     game.player.turns_remaining_underwater = 0;
 
@@ -431,11 +423,31 @@ fn move_player(game: &mut Game, mut dpos: Coord) {
     engine::invalidate_screen();
 }
 
+fn guard_kind_from_outfit_kind(kind: ItemKind) -> Option<GuardKind> {
+    match kind {
+        ItemKind::OutfitGuard => Some(GuardKind::Guard),
+        ItemKind::OutfitServant => Some(GuardKind::Servant),
+        ItemKind::OutfitNoble => Some(GuardKind::Noble),
+        _ => {None}
+    }
+}
+
+fn outfit_kind_from_guard_kind(maybe_kind: Option<GuardKind>) -> ItemKind {
+    match maybe_kind {
+        None => ItemKind::OutfitThief,
+        Some(kind) => match kind {
+            GuardKind::Guard => ItemKind::OutfitGuard,
+            GuardKind::Servant => ItemKind::OutfitServant,
+            GuardKind::Noble => ItemKind::OutfitNoble,
+        }
+    }
+}
+
 fn try_use_in_direction(game: &mut Game, dpos: Coord) {
     let pos = game.player.pos + dpos;
-    if let Some(outfit_new) = game.map.try_use_outfit_at(pos, if game.player.disguised {ItemKind::Outfit2} else {ItemKind::Outfit1}) {
+    if let Some(outfit_new) = game.map.try_use_outfit_at(pos, outfit_kind_from_guard_kind(game.player.disguise)) {
         pre_turn(game);
-        game.player.disguised = outfit_new != ItemKind::Outfit1;
+        game.player.disguise = guard_kind_from_outfit_kind(outfit_new);
         advance_time(game);
         engine::invalidate_screen();
     }
@@ -586,10 +598,6 @@ fn on_key_down_game_mode(game: &mut Game, key: i32, ctrl_key_down: bool, shift_k
             engine::KEY_C => {
                 game.map.mark_all_unseen();
                 update_map_visibility(&mut game.map, game.player.pos);
-                engine::invalidate_screen();
-            },
-            engine::KEY_D => {
-                game.player.disguised = !game.player.disguised;
                 engine::invalidate_screen();
             },
             engine::KEY_L => {

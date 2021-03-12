@@ -1531,9 +1531,13 @@ fn place_outfits(random: &mut Random, rooms: &Vec<Room>, adjacencies: &[Adjacenc
     rooms_ordered.shuffle(random);
     rooms_ordered.sort_by(room_order);
 
-    let mut num_outfits: usize = max(1, rooms.len() / 20);
+    let outfits = vec![ItemKind::OutfitGuard, ItemKind::OutfitServant, ItemKind::OutfitNoble];
+    let mut outfit_index = 0;
+
+    let mut num_outfits: usize = max(1, rooms.len() / 12);
     for room in rooms_ordered {
-        if try_place_outfit(random, room.pos_min, room.pos_max, map) {
+        if try_place_outfit(random, room.pos_min, room.pos_max, map, outfits[outfit_index]) {
+            outfit_index = (outfit_index + 1) % outfits.len();
             num_outfits -= 1;
             if num_outfits == 0 {
                 break;
@@ -1542,7 +1546,7 @@ fn place_outfits(random: &mut Random, rooms: &Vec<Room>, adjacencies: &[Adjacenc
     }
 }
 
-fn try_place_outfit(random: &mut Random, pos_min: Coord, pos_max: Coord, map: &mut Map) -> bool
+fn try_place_outfit(random: &mut Random, pos_min: Coord, pos_max: Coord, map: &mut Map, outfit_kind: ItemKind) -> bool
 {
     let dx = pos_max.0 - pos_min.0;
     let dy = pos_max.1 - pos_min.1;
@@ -1564,7 +1568,7 @@ fn try_place_outfit(random: &mut Random, pos_min: Coord, pos_max: Coord, map: &m
             continue;
         }
     
-        place_item(map, pos.0, pos.1, ItemKind::Outfit2);
+        place_item(map, pos.0, pos.1, outfit_kind);
         return true;
     }
 
@@ -1769,7 +1773,12 @@ fn place_guards(random: &mut Random, level: usize, rooms: &Vec<Room>, map: &mut 
         match generate_initial_guard_pos(random, &map) {
             None => break,
             Some(pos) => {
-                place_guard(random, map, pos);
+                let guard_kind = match random.gen_range(0..3) {
+                    0 => guard::GuardKind::Guard,
+                    1 => guard::GuardKind::Servant,
+                    _ => guard::GuardKind::Noble,
+                };
+                place_guard(random, map, pos, guard_kind);
                 num_guards -= 1;
             }
         }
@@ -1803,11 +1812,12 @@ fn generate_initial_guard_pos(random: &mut Random, map: &Map) -> Option<Coord> {
     return None;
 }
 
-fn place_guard(random: &mut Random, map: &mut Map, pos: Coord) {
+fn place_guard(random: &mut Random, map: &mut Map, pos: Coord, kind: guard::GuardKind) {
 
     let mut guard = guard::Guard {
         pos: pos,
         dir: Coord(1, 0),
+        kind: kind,
         mode: guard::GuardMode::Patrol,
         speaking: false,
         has_moved: false,
