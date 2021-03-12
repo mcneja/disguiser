@@ -126,22 +126,24 @@ pub fn on_draw(game: &Game, screen_size_x: i32, screen_size_y: i32) {
         put_tile(glyph, item.pos.0, item.pos.1, color);
     }
 
-/*
     // Halo around player
 
+    /*
     {
-        let pos = player.pos.mul_components(Coord(TILE_SIZE, TILE_SIZE)) + view_offset + Coord(-8, -8);
+        let pos = player.pos * TILE_SIZE + view_offset + Coord(-8, -8);
         let color = 0x40ffffff;
         draw_tile_by_index(228, pos.0, pos.1, color);
         draw_tile_by_index(229, pos.0 + TILE_SIZE, pos.1, color);
         draw_tile_by_index(230, pos.0, pos.1 + TILE_SIZE, color);
         draw_tile_by_index(231, pos.0 + TILE_SIZE, pos.1 + TILE_SIZE, color);
     }
+    */
 
     // Pointers at player along map edges
 
+    /*
     {
-        let pos = player.pos.mul_components(Coord(TILE_SIZE, TILE_SIZE)) + view_offset;
+        let pos = player.pos * TILE_SIZE + view_offset;
         let view_edge_min = Coord(max(view_offset.0, view_min.0), max(view_offset.1, view_min.1));
         let view_edge_max = Coord(min((map_size_x as i32) * TILE_SIZE + view_offset.0, view_max.0), min((map_size_y as i32) * TILE_SIZE + view_offset.1, view_max.1));
         let color = 0x40ffffff;
@@ -151,7 +153,7 @@ pub fn on_draw(game: &Game, screen_size_x: i32, screen_size_y: i32) {
         draw_tile_by_index(234, pos.0, view_edge_min.1, color);
         draw_tile_by_index(235, pos.0, view_edge_max.1 - TILE_SIZE, color);
     }
-*/
+    */
 
     // Player
 
@@ -211,66 +213,50 @@ pub fn on_draw(game: &Game, screen_size_x: i32, screen_size_y: i32) {
 
     put_offset_tile(218, player.pos.0, player.pos.1, color_preset::LIGHT_YELLOW, 0, 10);
 
-/*
+    // Draw a guard's distance field to goal region
+
+    /*
     if let Some(guard) = guards.first() {
-        if guard.region_goal != INVALID_REGION {
+        if guard.region_goal != crate::cell_grid::INVALID_REGION {
             let distance_field = map.compute_distances_to_region(guard.region_goal);
             for x in 0..map_size_x {
                 for y in 0..map_size_y {
-                    let pos = Vector::new(x as f32, ((map_size_y - 1) - y) as f32);
                     let d = distance_field[[x, y]];
-                    if d == 0 || d == INFINITE_COST {
+                    if d == 0 || d == crate::cell_grid::INFINITE_COST {
                         continue;
                     }
                     let digit = (d % 10) + 48;
                     let band = d / 10;
-                    let image = &tileset[digit];
-                    let pos_px = offset_px + TILE_SIZE.times(pos);
                     let color = if band == 0 {color_preset::WHITE} else if band == 1 {color_preset::LIGHT_YELLOW} else {color_preset::DARK_GRAY};
-                    window.draw(
-                        &Rectangle::new(pos_px, image.area().size()),
-                        Blended(&image, color),
-                    )
+                    put_tile(digit as u32, x as i32, y as i32, color);
                 }
             }
         }
     }
-*/
+    */
 
-/*
+    // Highlight a guard's previous and goal regions
+
+    /*
     if let Some(guard) = guards.first() {
-        let image = &tileset[255];
-        if guard.region_prev != INVALID_REGION {
-
+        if guard.region_prev != crate::cell_grid::INVALID_REGION {
+            const COLOR: u32 = 0x400000ff;
             let region = &map.patrol_regions[guard.region_prev];
-            for x in region.pos_min.0 .. region.pos_max.0 {
-                for y in region.pos_min.1 .. region.pos_max.1 {
-                    let pos = Vector::new(x as f32, ((map_size_y - 1) as i32 - y) as f32);
-                    let pos_px = offset_px + TILE_SIZE.times(pos);
-                    let color = Color {r:1.0, g:0.0, b:0.0, a:0.25};
-                    window.draw(
-                        &Rectangle::new(pos_px, image.area().size()),
-                        Blended(&image, color),
-                    )
-                }
-            }
+            let pos = view_offset + region.pos_min * TILE_SIZE;
+            let size = (region.pos_max - region.pos_min) * TILE_SIZE;
+            engine::draw_rect(pos.0, pos.1, size.0, size.1, COLOR);
         }
-        if guard.region_goal != INVALID_REGION {
+        if guard.region_goal != crate::cell_grid::INVALID_REGION {
+            const COLOR: u32 = 0x4000ff00;
             let region = &map.patrol_regions[guard.region_goal];
-            for x in region.pos_min.0 .. region.pos_max.0 {
-                for y in region.pos_min.1 .. region.pos_max.1 {
-                    let pos = Vector::new(x as f32, ((map_size_y - 1) as i32 - y) as f32);
-                    let pos_px = offset_px + TILE_SIZE.times(pos);
-                    let color = Color {r:0.0, g:1.0, b:0.0, a:0.25};
-                    window.draw(
-                        &Rectangle::new(pos_px, image.area().size()),
-                        Blended(&image, color),
-                    )
-                }
-            }
+            let pos = view_offset + region.pos_min * TILE_SIZE;
+            let size = (region.pos_max - region.pos_min) * TILE_SIZE;
+            engine::draw_rect(pos.0, pos.1, size.0, size.1, COLOR);
         }
     }
-*/
+    */
+
+    // Speech bubbles and sounds
 
     if game.show_msgs {
         game.popups.draw(
@@ -281,6 +267,8 @@ pub fn on_draw(game: &Game, screen_size_x: i32, screen_size_y: i32) {
             game.player.pos
         );
     }
+
+    // Help and status
 
     if game.show_help {
         draw_help(screen_size_x, screen_size_y, game.help_page);
