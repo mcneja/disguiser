@@ -215,46 +215,10 @@ fn act(&mut self, random: &mut Random, see_all: bool, popups: &mut Popups, lines
     let mode_prev = self.mode;
     let pos_prev = self.pos;
 
-    // See if senses will kick us into a new mode
+    // Sight- and hearing-based state changes
 
-    if self.sees_thief(map, player) {
-        self.goal = player.pos;
-
-        if self.mode == GuardMode::Patrol && (player.disguised || !self.adjacent_to(player.pos)) {
-            self.mode = if player.disguised {GuardMode::LookAtDisguised} else {GuardMode::Look};
-            self.mode_timeout = random.gen_range(3..6);
-            self.dir = update_dir(self.dir, player.pos - self.pos);
-        } else {
-            self.mode = GuardMode::ChaseVisibleTarget;
-        }
-    } else if self.mode == GuardMode::ChaseVisibleTarget {
-        self.mode = GuardMode::MoveToLastSighting;
-        self.mode_timeout = 3;
-        self.goal = player.pos;
-    }
-
-    if self.mode != GuardMode::ChaseVisibleTarget {
-        if self.heard_guard {
-            self.mode = GuardMode::MoveToGuardShout;
-            self.mode_timeout = random.gen_range(2..6);
-            self.goal = self.heard_guard_pos;
-        }
-
-        if self.heard_thief {
-            if self.adjacent_to(player.pos) {
-                self.mode = GuardMode::ChaseVisibleTarget;
-                self.goal = player.pos;
-            } else if self.mode == GuardMode::Patrol {
-                self.mode = GuardMode::Listen;
-                self.mode_timeout = random.gen_range(3..6);
-                self.dir = update_dir(self.dir, player.pos - self.pos);
-            } else {
-                self.mode = GuardMode::MoveToLastSound;
-                self.mode_timeout = random.gen_range(3..6);
-                self.goal = player.pos;
-            }
-        }
-    }
+    self.update_state_based_on_sight(random, map, player);
+    self.update_state_based_on_hearing(random, player);
 
     // Pass time in the current mode
 
@@ -300,22 +264,7 @@ fn act(&mut self, random: &mut Random, see_all: bool, popups: &mut Popups, lines
     // If we moved, update state based on target visibility from new position
 
     if self.pos != pos_prev {
-        if self.sees_thief(map, player) {
-            self.goal = player.pos;
-
-            if self.mode == GuardMode::Patrol && (player.disguised || !self.adjacent_to(player.pos)) {
-                self.mode = if player.disguised {GuardMode::LookAtDisguised} else {GuardMode::Look};
-                self.mode_timeout = random.gen_range(3..6);
-            } else {
-                self.mode = GuardMode::ChaseVisibleTarget;
-            }
-
-            self.dir = update_dir(self.dir, player.pos - self.pos);
-        } else if self.mode == GuardMode::ChaseVisibleTarget {
-            self.mode = GuardMode::MoveToLastSighting;
-            self.mode_timeout = 3;
-            self.goal = player.pos;
-        }
+        self.update_state_based_on_sight(random, map, player);
     }
 
     // Clear heard-thief flag
@@ -328,8 +277,53 @@ fn act(&mut self, random: &mut Random, see_all: bool, popups: &mut Popups, lines
         self.say(popups, player, see_all, line_iter.next());
     }
 
+    // Shout to allies on entry to ChaseVisibleTarget
+
     if self.mode == GuardMode::ChaseVisibleTarget && mode_prev != GuardMode::ChaseVisibleTarget {
         shouts.push(Shout{pos_shouter: self.pos, pos_target: player.pos});
+    }
+}
+
+fn update_state_based_on_sight(&mut self, random: &mut Random, map: &Map, player: &Player) {
+    if self.sees_thief(map, player) {
+        if self.mode == GuardMode::Patrol && (player.disguised || !self.adjacent_to(player.pos)) {
+            self.mode = if player.disguised {GuardMode::LookAtDisguised} else {GuardMode::Look};
+            self.mode_timeout = random.gen_range(3..6);
+        } else {
+            self.mode = GuardMode::ChaseVisibleTarget;
+            self.goal = player.pos;
+            self.dir = update_dir(self.dir, self.goal - self.pos);
+        }
+    } else if self.mode == GuardMode::ChaseVisibleTarget {
+        self.mode = GuardMode::MoveToLastSighting;
+        self.mode_timeout = 3;
+        self.goal = player.pos;
+    }
+}
+
+fn update_state_based_on_hearing(&mut self, random: &mut Random, player: &Player) {
+    if self.mode == GuardMode::ChaseVisibleTarget {
+        return;
+    }
+
+    if self.heard_guard {
+        self.mode = GuardMode::MoveToGuardShout;
+        self.mode_timeout = random.gen_range(2..6);
+        self.goal = self.heard_guard_pos;
+    }
+
+    if self.heard_thief {
+        if self.adjacent_to(player.pos) {
+            self.mode = GuardMode::ChaseVisibleTarget;
+            self.goal = player.pos;
+        } else if self.mode == GuardMode::Patrol {
+            self.mode = GuardMode::Listen;
+            self.mode_timeout = random.gen_range(3..6);
+        } else {
+            self.mode = GuardMode::MoveToLastSound;
+            self.mode_timeout = random.gen_range(3..6);
+            self.goal = player.pos;
+        }
     }
 }
 
