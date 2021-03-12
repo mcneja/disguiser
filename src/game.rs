@@ -520,6 +520,10 @@ fn blocked(map: &Map, pos_old: Coord, pos_new: Coord) -> bool {
         return true;
     }
 
+    if pos_old == pos_new {
+        return false;
+    }
+
     let tile_type = map.cells[[pos_new.0 as usize, pos_new.1 as usize]].cell_type;
     let tile = tile_def(tile_type);
 
