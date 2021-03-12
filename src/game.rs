@@ -787,7 +787,7 @@ fn draw_top_status_bar(screen_size_x: i32, screen_size_y: i32, game: &Game) {
 static HELP_MESSAGES: &[&str] = &[
 
 // Page 1
-"ThiefRL 2 (Web version: 2021 March 8)
+"Disguiser
 
 Press right arrow for hints, or ? to toggle this help
 
@@ -796,17 +796,17 @@ Sneak into mansions, map them, steal all the loot and get out.
 The guards cannot be injured! They also cannot cut corners diagonally.
 
 Use the numpad keys to move horizontally, vertically, and diagonally.
-Use numpad 5 to wait. Alternatively use the keys (H J K L Y U B N),
+Use numpad 5 to wait. Alternatively use the keys (H J K L Y U B N .),
 or arrow keys with Shift/Ctrl plus Left/Right to move diagonally.
 
 Health is shown on the status bar in the lower left.
 
-A 2016 Seven-day Roguelike Challenge game by James McNeill
+A 2021 Seven-day Roguelike Challenge game by James McNeill
 
-Testing: Mike Gaffney, Mendi Carroll
 Special Thanks: Mendi Carroll
 
-http://playtechs.blogspot.com",
+mcneja.github.io
+playtechs.blogspot.com",
 
 // Page 2
 "Hints
