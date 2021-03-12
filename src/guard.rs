@@ -565,7 +565,9 @@ static SEE_DISGUISED_LINES: &[&str] = &[
     "Wait...",
     "Hey...",
     "Let me see your face...",
-    "You don't belong here!",
+    "Do you belong here?",
+    "You are...?",
+    "Are you new here?",
 ];
 
 static HEAR_LINES: &[&str] = &[
@@ -654,14 +656,15 @@ static DONE_LOOKING_LINES: &[&str] = &[
 ];
 
 static DONE_SEEING_DISGUISED_LINES: &[&str] = &[
-    "I didn't know him.",
     "Who was that?",
     "Huh...",
+    "I wonder who that was?",
     "Oh well.",
     "I'm seeing things.",
     "I've been up too long.",
     "Seeing things, I guess.",
-    "Probably a new guy.",
+    "Probably new here.",
+    "Better get back to it.",
     "Did I imagine that?",
     "Should I tell the boss?",
 ];
