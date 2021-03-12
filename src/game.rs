@@ -69,6 +69,10 @@ fn restart_game(game: &mut Game) {
     update_map_visibility(&mut game.map, game.player.pos);
 }
 
+fn finished_level(map: &Map) -> bool {
+    map.all_loot_collected() && map.all_seen()
+}
+
 pub fn on_draw(game: &Game, screen_size_x: i32, screen_size_y: i32) {
     let map = &game.map;
     let items = &game.map.items;
@@ -369,7 +373,7 @@ fn move_player(game: &mut Game, mut dpos: Coord) {
 
     let pos_new = player.pos + dpos;
 
-    if !on_level(&game.map.cells, pos_new) && game.map.all_seen() && game.map.all_loot_collected() {
+    if !on_level(&game.map.cells, pos_new) && finished_level(&game.map) {
         advance_to_next_level(game);
         return;
     }
@@ -481,7 +485,7 @@ fn advance_time(game: &mut Game) {
 
     update_map_visibility(&mut game.map, game.player.pos);
 
-    if game.map.all_seen() && game.map.all_loot_collected() {
+    if finished_level(&game.map) {
         game.finished_level = true;
     }
 }
@@ -574,9 +578,7 @@ fn on_key_down_game_mode(game: &mut Game, key: i32, ctrl_key_down: bool, shift_k
             engine::KEY_C => {
                 game.map.mark_all_unseen();
                 update_map_visibility(&mut game.map, game.player.pos);
-                if !game.map.all_seen() {
-                    game.finished_level = false;
-                }
+                game.finished_level = finished_level(&game.map);
                 engine::invalidate_screen();
             },
             engine::KEY_D => {
@@ -585,9 +587,7 @@ fn on_key_down_game_mode(game: &mut Game, key: i32, ctrl_key_down: bool, shift_k
             },
             engine::KEY_L => {
                 game.player.gold += game.map.collect_all_loot();
-                if game.map.all_seen() {
-                    game.finished_level = true;
-                }
+                game.finished_level = finished_level(&game.map);
                 engine::invalidate_screen();
             },
             engine::KEY_R => {
@@ -596,9 +596,7 @@ fn on_key_down_game_mode(game: &mut Game, key: i32, ctrl_key_down: bool, shift_k
             },
             engine::KEY_S => {
                 game.map.mark_all_seen();
-                if game.map.all_loot_collected() {
-                    game.finished_level = true;
-                }
+                game.finished_level = finished_level(&game.map);
                 engine::invalidate_screen();
             },
             _ => {}
