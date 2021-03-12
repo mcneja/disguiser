@@ -12,6 +12,7 @@ pub enum GuardMode
 {
     Patrol,
     Look,
+    LookAtDisguised,
     Listen,
     ChaseVisibleTarget,
     MoveToLastSighting,
@@ -134,6 +135,7 @@ impl LineIter {
 
 pub struct Lines {
     see: LineIter,
+    see_disguised: LineIter,
     hear: LineIter,
     hear_guard: LineIter,
     chase: LineIter,
@@ -141,6 +143,7 @@ pub struct Lines {
     end_chase: LineIter,
     end_investigate: LineIter,
     done_looking: LineIter,
+    done_seeing_disguised: LineIter,
     done_listening: LineIter,
     damage: LineIter,
 }
@@ -148,6 +151,7 @@ pub struct Lines {
 pub fn new_lines() -> Lines {
     Lines {
         see: LineIter::new(SEE_LINES),
+        see_disguised: LineIter::new(SEE_DISGUISED_LINES),
         hear: LineIter::new(HEAR_LINES),
         hear_guard: LineIter::new(HEAR_GUARD_LINES),
         chase: LineIter::new(CHASE_LINES),
@@ -155,8 +159,37 @@ pub fn new_lines() -> Lines {
         end_chase: LineIter::new(END_CHASE_LINES),
         end_investigate: LineIter::new(END_INVESTIGATION_LINES),
         done_looking: LineIter::new(DONE_LOOKING_LINES),
+        done_seeing_disguised: LineIter::new(DONE_SEEING_DISGUISED_LINES),
         done_listening: LineIter::new(DONE_LISTENING_LINES),
         damage: LineIter::new(DAMAGE_LINES),
+    }
+}
+
+fn lines_for_state_change(lines: &mut Lines, mode_prev: GuardMode, mode_next: GuardMode) -> Option<&mut LineIter> {
+    if mode_next == mode_prev {
+        None
+    } else {
+        match mode_next {
+            GuardMode::Patrol => {
+                match mode_prev {
+                    GuardMode::Look => Some(&mut lines.done_looking),
+                    GuardMode::LookAtDisguised => Some(&mut lines.done_seeing_disguised),
+                    GuardMode::Listen => Some(&mut lines.done_listening),
+                    GuardMode::MoveToLastSound |
+                    GuardMode::MoveToGuardShout => Some(&mut lines.end_investigate),
+                    GuardMode::MoveToLastSighting => Some(&mut lines.end_chase),
+                    _ => None
+                }
+            },
+            GuardMode::Look => Some(&mut lines.see),
+            GuardMode::LookAtDisguised => Some(&mut lines.see_disguised),
+            GuardMode::Listen => Some(&mut lines.hear),
+            GuardMode::ChaseVisibleTarget =>
+                if mode_prev != GuardMode::MoveToLastSighting {Some(&mut lines.chase)} else {None},
+            GuardMode::MoveToLastSighting => None,
+            GuardMode::MoveToLastSound => Some(&mut lines.investigate),
+            GuardMode::MoveToGuardShout => Some(&mut lines.hear_guard),
+        }
     }
 }
 
@@ -188,9 +221,9 @@ fn act(&mut self, random: &mut Random, see_all: bool, popups: &mut Popups, lines
     if self.sees_thief(map, player) {
         self.goal = player.pos;
 
-        if self.mode == GuardMode::Patrol && !self.adjacent_to(player.pos) {
-            self.mode = GuardMode::Look;
-            self.mode_timeout = random.gen_range(2..6);
+        if self.mode == GuardMode::Patrol && (player.disguised || !self.adjacent_to(player.pos)) {
+            self.mode = if player.disguised {GuardMode::LookAtDisguised} else {GuardMode::Look};
+            self.mode_timeout = random.gen_range(3..6);
             self.dir = update_dir(self.dir, player.pos - self.pos);
         } else {
             self.mode = GuardMode::ChaseVisibleTarget;
@@ -214,11 +247,11 @@ fn act(&mut self, random: &mut Random, see_all: bool, popups: &mut Popups, lines
                 self.goal = player.pos;
             } else if self.mode == GuardMode::Patrol {
                 self.mode = GuardMode::Listen;
-                self.mode_timeout = random.gen_range(2..6);
+                self.mode_timeout = random.gen_range(3..6);
                 self.dir = update_dir(self.dir, player.pos - self.pos);
             } else {
                 self.mode = GuardMode::MoveToLastSound;
-                self.mode_timeout = random.gen_range(2..6);
+                self.mode_timeout = random.gen_range(3..6);
                 self.goal = player.pos;
             }
         }
@@ -231,6 +264,7 @@ fn act(&mut self, random: &mut Random, see_all: bool, popups: &mut Popups, lines
             self.patrol_step(map, player, random);
         },
         GuardMode::Look |
+        GuardMode::LookAtDisguised |
         GuardMode::Listen => {
             self.mode_timeout -= 1;
             if self.mode_timeout == 0 {
@@ -270,9 +304,9 @@ fn act(&mut self, random: &mut Random, see_all: bool, popups: &mut Popups, lines
         if self.sees_thief(map, player) {
             self.goal = player.pos;
 
-            if self.mode == GuardMode::Patrol && !self.adjacent_to(player.pos) {
-                self.mode = GuardMode::Look;
-                self.mode_timeout = random.gen_range(2..6);
+            if self.mode == GuardMode::Patrol && (player.disguised || !self.adjacent_to(player.pos)) {
+                self.mode = if player.disguised {GuardMode::LookAtDisguised} else {GuardMode::Look};
+                self.mode_timeout = random.gen_range(3..6);
             } else {
                 self.mode = GuardMode::ChaseVisibleTarget;
             }
@@ -291,42 +325,12 @@ fn act(&mut self, random: &mut Random, see_all: bool, popups: &mut Popups, lines
 
     // Say something to indicate state changes
 
-    if mode_prev != self.mode {
-        match self.mode {
-            GuardMode::Patrol => {
-                if mode_prev == GuardMode::Look {
-                    self.say(popups, player, see_all, lines.done_looking.next());
-                } else if mode_prev == GuardMode::Listen {
-                    self.say(popups, player, see_all, lines.done_listening.next());
-                }
-                else if mode_prev == GuardMode::MoveToLastSound || mode_prev == GuardMode::MoveToGuardShout {
-                    self.say(popups, player, see_all, lines.end_investigate.next());
-                }
-                else if mode_prev == GuardMode::MoveToLastSighting {
-                    self.say(popups, player, see_all, lines.end_chase.next());
-                }
-            },
-            GuardMode::Look => {
-                self.say(popups, player, see_all, lines.see.next());
-            },
-            GuardMode::Listen => {
-                self.say(popups, player, see_all, lines.hear.next());
-            },
-            GuardMode::ChaseVisibleTarget => {
-                if mode_prev != GuardMode::MoveToLastSighting {
-                    shouts.push(Shout{pos_shouter: self.pos, pos_target: player.pos});
-                    self.say(popups, player, see_all, lines.chase.next());
-                }
-            },
-            GuardMode::MoveToLastSighting => {
-            },
-            GuardMode::MoveToLastSound => {
-                self.say(popups, player, see_all, lines.investigate.next());
-            },
-            GuardMode::MoveToGuardShout => {
-                self.say(popups, player, see_all, lines.hear_guard.next());
-            },
-        }
+    if let Some(line_iter) = lines_for_state_change(lines, mode_prev, self.mode) {
+        self.say(popups, player, see_all, line_iter.next());
+    }
+
+    if self.mode == GuardMode::ChaseVisibleTarget && mode_prev != GuardMode::ChaseVisibleTarget {
+        shouts.push(Shout{pos_shouter: self.pos, pos_target: player.pos});
     }
 }
 
@@ -369,16 +373,14 @@ fn adjacent_to(&self, pos: Coord) -> bool {
 }
 
 fn sees_thief(&self, map: &Map, player: &Player) -> bool {
-    if player.disguised && !self.seer && self.mode == GuardMode::Patrol {
-        return false;
-    }
-
     let d = player.pos - self.pos;
     if self.dir.dot(d) < 0 {
         return false;
     }
 
-    let player_is_lit = map.cells[[player.pos.0 as usize, player.pos.1 as usize]].lit;
+    let thief_disguised = player.disguised && !self.seer && self.mode != GuardMode::ChaseVisibleTarget;
+
+    let player_is_lit = !thief_disguised && map.cells[[player.pos.0 as usize, player.pos.1 as usize]].lit;
 
     let d2 = d.length_squared();
     if d2 >= self.sight_cutoff(player_is_lit) {
@@ -397,11 +399,11 @@ fn sees_thief(&self, map: &Map, player: &Player) -> bool {
 }
 
 fn cutoff_lit(&self) -> i32 {
-    if self.mode == GuardMode::Patrol {40} else {75}
+    if self.mode == GuardMode::Patrol || self.mode == GuardMode::LookAtDisguised {40} else {75}
 }
 
 fn cutoff_unlit(&self) -> i32 {
-    if self.mode == GuardMode::Patrol {3} else {33}
+    if self.mode == GuardMode::Patrol || self.mode == GuardMode::LookAtDisguised {3} else {33}
 }
 
 fn sight_cutoff(&self, lit_target: bool) -> i32 {
@@ -561,6 +563,16 @@ static SEE_LINES: &[&str] = &[
     "Hello?",
 ];
 
+static SEE_DISGUISED_LINES: &[&str] = &[
+    "Who are you?",
+    "You don't look familiar!",
+    "Do I know you?",
+    "Wait...",
+    "Hey...",
+    "Let me see your face...",
+    "You don't belong here!",
+];
+
 static HEAR_LINES: &[&str] = &[
     "Huh?",
     "What?",
@@ -644,6 +656,19 @@ static DONE_LOOKING_LINES: &[&str] = &[
     "Seeing things, I guess.",
     "Hope it wasn't anything.",
     "Did I imagine that?",
+];
+
+static DONE_SEEING_DISGUISED_LINES: &[&str] = &[
+    "I didn't know him.",
+    "Who was that?",
+    "Huh...",
+    "Oh well.",
+    "I'm seeing things.",
+    "I've been up too long.",
+    "Seeing things, I guess.",
+    "Probably a new guy.",
+    "Did I imagine that?",
+    "Should I tell the boss?",
 ];
 
 static DONE_LISTENING_LINES: &[&str] = &[
