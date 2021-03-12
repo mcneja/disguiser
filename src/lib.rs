@@ -45,13 +45,23 @@ mod engine {
 
     /// Key codes passed to game::on_key_down()
 
+    pub const KEY_BACKSPACE: i32 = 8;
+    pub const KEY_TAB: i32 = 9;
+    pub const KEY_ENTER: i32 = 13;
+
     pub const KEY_ESCAPE: i32 = 27;
     pub const KEY_SPACE: i32 = 32;
 
+    pub const KEY_PAGE_UP: i32 = 33;
+    pub const KEY_PAGE_DOWN: i32 = 34;
+    pub const KEY_END: i32 = 35;
+    pub const KEY_HOME: i32 = 36;
     pub const KEY_LEFT: i32 = 37;
     pub const KEY_UP: i32 = 38;
     pub const KEY_RIGHT: i32 = 39;
     pub const KEY_DOWN: i32 = 40;
+    pub const KEY_INSERT: i32 = 45;
+    pub const KEY_DELETE: i32 = 46;
 
     pub const KEY_0: i32 = 48;
     pub const KEY_1: i32 = 49;
@@ -91,6 +101,7 @@ mod engine {
     pub const KEY_Y: i32 = 89;
     pub const KEY_Z: i32 = 90;
 
+    pub const KEY_NUMPAD0: i32 = 96;
     pub const KEY_NUMPAD1: i32 = 97;
     pub const KEY_NUMPAD2: i32 = 98;
     pub const KEY_NUMPAD3: i32 = 99;
@@ -101,8 +112,23 @@ mod engine {
     pub const KEY_NUMPAD8: i32 = 104;
     pub const KEY_NUMPAD9: i32 = 105;
 
+    pub const KEY_NUMPAD_MULTIPLY: i32 = 106;
+    pub const KEY_NUMPAD_ADD: i32 = 107;
+    pub const KEY_NUMPAD_ENTER: i32 = 108;
+    pub const KEY_NUMPAD_SUBTRACT: i32 = 109;
+    pub const KEY_NUMPAD_DECIMAL: i32 = 110;
+    pub const KEY_NUMPAD_DIVIDE: i32 = 111;
+    pub const KEY_SEMICOLON: i32 = 186;
+    pub const KEY_EQUAL: i32 = 187;
+    pub const KEY_COMMA: i32 = 188;
+    pub const KEY_MINUS: i32 = 189;
     pub const KEY_PERIOD: i32 = 190;
     pub const KEY_SLASH: i32 = 191;
+    pub const KEY_BACKQUOTE: i32 = 192;
+    pub const KEY_BRACKET_LEFT: i32 = 219;
+    pub const KEY_BACKSLASH: i32 = 220;
+    pub const KEY_BRACKET_RIGHT: i32 = 221;
+    pub const KEY_QUOTE: i32 = 222;
 
     // TODO: Create an object that contains draw_rect() and draw_tile(); pass it to on_draw()
     // to ensure that draw_rect()/draw_tile() only get called during on_draw().
