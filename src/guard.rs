@@ -24,7 +24,6 @@ pub struct Guard {
     pub pos: Coord,
     pub dir: Coord,
     pub mode: GuardMode,
-    pub seer: bool,
     pub speaking: bool,
     pub has_moved: bool,
     pub heard_thief: bool,
@@ -349,10 +348,6 @@ pub fn overhead_icon_and_color(&self, map: &Map, player: &Player, see_all: bool)
         return Some((216, color_preset::LIGHT_YELLOW));
     }
 
-    if self.seer && visible && cell.lit {
-        return Some((219, color_preset::LIGHT_YELLOW));
-    }
-
     None
 }
 
@@ -378,7 +373,7 @@ fn sees_thief(&self, map: &Map, player: &Player) -> bool {
         return false;
     }
 
-    let thief_disguised = player.disguised && !self.seer && self.mode != GuardMode::ChaseVisibleTarget;
+    let thief_disguised = player.disguised && self.mode != GuardMode::ChaseVisibleTarget;
 
     let player_is_lit = !thief_disguised && map.cells[[player.pos.0 as usize, player.pos.1 as usize]].lit;
 
@@ -419,7 +414,7 @@ fn patrol_step(&mut self, map: &Map, player: &mut Player, random: &mut Random) {
         self.region_goal = map.random_neighbor_region(random, self.region_goal, region_prev);
     }
 
-    if bumped_thief && (self.seer || !player.disguised) {
+    if bumped_thief && !player.disguised {
         self.mode = GuardMode::ChaseVisibleTarget;
         self.goal = player.pos;
         self.dir = update_dir(self.dir, self.goal - self.pos);

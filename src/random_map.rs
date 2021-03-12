@@ -1774,14 +1774,6 @@ fn place_guards(random: &mut Random, level: usize, rooms: &Vec<Room>, map: &mut 
             }
         }
     }
-
-    // Make one of the guards a seer (able to see through player's disguise)
-
-    if level > 2 {
-        if let Some(guard) = map.guards.first_mut() {
-            guard.seer = true;
-        }
-    }
 }
 
 fn generate_initial_guard_pos(random: &mut Random, map: &Map) -> Option<Coord> {
@@ -1819,7 +1811,6 @@ fn place_guard(random: &mut Random, map: &mut Map, pos: Coord) {
         mode: guard::GuardMode::Patrol,
         speaking: false,
         has_moved: false,
-        seer: false,
         heard_thief: false,
         hearing_guard: false,
         heard_guard: false,
