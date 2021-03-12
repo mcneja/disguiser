@@ -1531,7 +1531,7 @@ fn place_outfits(random: &mut Random, rooms: &Vec<Room>, adjacencies: &[Adjacenc
     rooms_ordered.shuffle(random);
     rooms_ordered.sort_by(room_order);
 
-    let mut num_outfits: usize = max(1, rooms.len() / 10);
+    let mut num_outfits: usize = max(1, rooms.len() / 20);
     for room in rooms_ordered {
         if try_place_outfit(random, room.pos_min, room.pos_max, map) {
             num_outfits -= 1;
