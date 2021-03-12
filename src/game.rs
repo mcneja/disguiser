@@ -6,7 +6,7 @@ use crate::color_preset;
 use crate::coord::Coord;
 use crate::engine;
 use crate::fontdata;
-use crate::guard::{GuardMode, Lines, guard_act_all, new_lines, update_dir};
+use crate::guard::{GuardKind, GuardMode, Lines, color_for_guard_kind, guard_act_all, new_lines, update_dir};
 use crate::random_map;
 use crate::speech_bubbles::{get_horizontal_extents, puts_proportional, new_popups, Popups};
 
@@ -15,7 +15,7 @@ const BAR_BACKGROUND_COLOR: u32 = 0xff101010;
 
 const TILE_SIZE: i32 = 16;
 
-const INITIAL_LEVEL: usize = 0;
+const INITIAL_LEVEL: usize = 20;
 const SEE_ALL_DEFAULT: bool = false;
 
 pub struct Game {
@@ -162,7 +162,7 @@ pub fn on_draw(game: &Game, screen_size_x: i32, screen_size_y: i32) {
     // Player
 
     {
-        let tile_index = tile_index_offset_for_dir(player.dir) + if player.disguised {212} else {208};
+        let tile_index = tile_index_offset_for_dir(player.dir) + if player.disguise.is_some() {212} else {208};
 
         let lit = map.cells[[player.pos.0 as usize, player.pos.1 as usize]].lit;
         let hidden = player.hidden(map);
@@ -172,7 +172,7 @@ pub fn on_draw(game: &Game, screen_size_x: i32, screen_size_y: i32) {
             else if player.noisy {color_preset::LIGHT_CYAN}
             else if hidden {0xd0101010}
             else if !lit {color_preset::LIGHT_BLUE}
-            else if player.disguised {color_preset::LIGHT_MAGENTA}
+            else if let Some(guard_kind) = player.disguise {color_for_guard_kind(guard_kind)}
             else {color_preset::LIGHT_GRAY};
 
         put_tile(tile_index, player.pos.0, player.pos.1, color);
@@ -199,7 +199,7 @@ pub fn on_draw(game: &Game, screen_size_x: i32, screen_size_y: i32) {
             } else if guard.mode == GuardMode::Patrol && !guard.speaking && !cell.lit {
                 UNLIT_COLOR
             } else {
-                color_preset::LIGHT_MAGENTA
+                color_for_guard_kind(guard.kind)
             };
 
         put_tile(tile_index, guard.pos.0, guard.pos.1, color);
@@ -322,8 +322,10 @@ fn glyph_for_item(kind: ItemKind) -> u32 {
         ItemKind::DoorEW => 167,
         ItemKind::PortcullisNS => 194,
         ItemKind::PortcullisEW => 194,
-        ItemKind::Outfit1 => 163,
-        ItemKind::Outfit2 => 163,
+        ItemKind::OutfitThief => 163,
+        ItemKind::OutfitGuard => 163,
+        ItemKind::OutfitServant => 163,
+        ItemKind::OutfitNoble => 163,
     }
 }
 
@@ -337,8 +339,10 @@ fn color_for_item(kind: ItemKind) -> u32 {
         ItemKind::DoorEW => color_preset::DARK_BROWN,
         ItemKind::PortcullisNS => color_preset::LIGHT_GRAY,
         ItemKind::PortcullisEW => color_preset::LIGHT_GRAY,
-        ItemKind::Outfit1 => color_preset::LIGHT_GRAY,
-        ItemKind::Outfit2 => color_preset::LIGHT_MAGENTA,
+        ItemKind::OutfitThief => color_preset::LIGHT_GRAY,
+        ItemKind::OutfitGuard => color_preset::LIGHT_MAGENTA,
+        ItemKind::OutfitServant => color_preset::LIGHT_CYAN,
+        ItemKind::OutfitNoble => color_preset::LIGHT_GREEN,
     }
 }
 
@@ -351,7 +355,7 @@ fn advance_to_next_level(game: &mut Game) {
     game.player.dir = Coord(0, -1);
     game.player.gold = 0;
     game.player.noisy = false;
-    game.player.disguised = false;
+    game.player.disguise = None;
     game.player.damaged_last_turn = false;
     game.player.turns_remaining_underwater = 0;
 
@@ -423,11 +427,31 @@ fn move_player(game: &mut Game, mut dpos: Coord) {
     engine::invalidate_screen();
 }
 
+fn guard_kind_from_outfit_kind(kind: ItemKind) -> Option<GuardKind> {
+    match kind {
+        ItemKind::OutfitGuard => Some(GuardKind::Guard),
+        ItemKind::OutfitServant => Some(GuardKind::Servant),
+        ItemKind::OutfitNoble => Some(GuardKind::Noble),
+        _ => {None}
+    }
+}
+
+fn outfit_kind_from_guard_kind(maybe_kind: Option<GuardKind>) -> ItemKind {
+    match maybe_kind {
+        None => ItemKind::OutfitThief,
+        Some(kind) => match kind {
+            GuardKind::Guard => ItemKind::OutfitGuard,
+            GuardKind::Servant => ItemKind::OutfitServant,
+            GuardKind::Noble => ItemKind::OutfitNoble,
+        }
+    }
+}
+
 fn try_use_in_direction(game: &mut Game, dpos: Coord) {
     let pos = game.player.pos + dpos;
-    if let Some(outfit_new) = game.map.try_use_outfit_at(pos, if game.player.disguised {ItemKind::Outfit2} else {ItemKind::Outfit1}) {
+    if let Some(outfit_new) = game.map.try_use_outfit_at(pos, outfit_kind_from_guard_kind(game.player.disguise)) {
         pre_turn(game);
-        game.player.disguised = outfit_new != ItemKind::Outfit1;
+        game.player.disguise = guard_kind_from_outfit_kind(outfit_new);
         game.player.dir = update_dir(game.player.dir, dpos);
         advance_time(game);
         engine::invalidate_screen();
@@ -580,10 +604,6 @@ fn on_key_down_game_mode(game: &mut Game, key: i32, ctrl_key_down: bool, shift_k
                 game.map.mark_all_unseen();
                 update_map_visibility(&mut game.map, game.player.pos);
                 game.finished_level = finished_level(&game.map);
-                engine::invalidate_screen();
-            },
-            engine::KEY_D => {
-                game.player.disguised = !game.player.disguised;
                 engine::invalidate_screen();
             },
             engine::KEY_L => {

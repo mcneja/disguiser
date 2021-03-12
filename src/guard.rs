@@ -8,8 +8,7 @@ use rand::Rng;
 use std::cmp::{min, max};
 
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
-pub enum GuardMode
-{
+pub enum GuardMode {
     Patrol,
     Look,
     LookAtDisguised,
@@ -20,9 +19,25 @@ pub enum GuardMode
     MoveToGuardShout,
 }
 
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub enum GuardKind {
+    Guard,
+    Servant,
+    Noble,
+}
+
+pub fn color_for_guard_kind(kind: GuardKind) -> u32 {
+    match kind {
+        GuardKind::Guard => color_preset::LIGHT_MAGENTA,
+        GuardKind::Servant => color_preset::LIGHT_CYAN,
+        GuardKind::Noble => color_preset::LIGHT_GREEN,
+    }
+}
+
 pub struct Guard {
     pub pos: Coord,
     pub dir: Coord,
+    pub kind: GuardKind,
     pub mode: GuardMode,
     pub speaking: bool,
     pub has_moved: bool,
@@ -271,8 +286,8 @@ fn act(&mut self, random: &mut Random, see_all: bool, popups: &mut Popups, lines
     // Update state based on target visibility from new position
 
     if self.sees_thief(map, player) {
-        if self.mode == GuardMode::Patrol && (player.disguised || !self.adjacent_to(player.pos)) {
-            self.mode = if player.disguised {GuardMode::LookAtDisguised} else {GuardMode::Look};
+        if self.mode == GuardMode::Patrol && (player.disguise.is_some() || !self.adjacent_to(player.pos)) {
+            self.mode = if player.disguise.is_some() {GuardMode::LookAtDisguised} else {GuardMode::Look};
             self.mode_timeout = random.gen_range(3..6);
         } else {
             self.mode = GuardMode::ChaseVisibleTarget;
@@ -368,7 +383,7 @@ fn sees_thief(&self, map: &Map, player: &Player) -> bool {
         return false;
     }
 
-    let thief_disguised = player.disguised && self.mode != GuardMode::ChaseVisibleTarget;
+    let thief_disguised = player.disguise.is_some() && self.mode != GuardMode::ChaseVisibleTarget;
 
     let player_is_lit = !thief_disguised && map.cells[[player.pos.0 as usize, player.pos.1 as usize]].lit;
 
@@ -409,7 +424,7 @@ fn patrol_step(&mut self, map: &Map, player: &mut Player, random: &mut Random) {
         self.region_goal = map.random_neighbor_region(random, self.region_goal, region_prev);
     }
 
-    if bumped_thief && !player.disguised {
+    if bumped_thief && player.disguise.is_none() {
         self.mode = GuardMode::ChaseVisibleTarget;
         self.goal = player.pos;
         self.dir = update_dir(self.dir, self.goal - self.pos);

@@ -96,8 +96,10 @@ pub enum ItemKind {
     DoorEW,
     PortcullisNS,
     PortcullisEW,
-    Outfit1,
-    Outfit2,
+    OutfitThief,
+    OutfitGuard,
+    OutfitServant,
+    OutfitNoble,
 }
 
 pub struct Player {
@@ -106,7 +108,7 @@ pub struct Player {
     pub max_health: usize,
     pub health: usize,
     pub gold: usize,
-    pub disguised: bool,
+    pub disguise: Option<guard::GuardKind>,
 
     pub noisy: bool, // did the player make noise last turn?
     pub damaged_last_turn: bool,
@@ -208,8 +210,22 @@ pub fn guard_move_cost_for_item_kind(kind: ItemKind) -> usize {
         ItemKind::DoorEW => 0,
         ItemKind::PortcullisNS => 0,
         ItemKind::PortcullisEW => 0,
-        ItemKind::Outfit1 => INFINITE_COST,
-        ItemKind::Outfit2 => INFINITE_COST,
+        ItemKind::OutfitThief => INFINITE_COST,
+        ItemKind::OutfitGuard => INFINITE_COST,
+        ItemKind::OutfitServant => INFINITE_COST,
+        ItemKind::OutfitNoble => INFINITE_COST,
+    }
+}
+
+fn is_outfit_kind(kind: ItemKind) -> bool {
+    match kind {
+        ItemKind::OutfitThief |
+        ItemKind::OutfitGuard |
+        ItemKind::OutfitServant |
+        ItemKind::OutfitNoble => {
+            true
+        }
+        _ => {false}
     }
 }
 
@@ -221,7 +237,7 @@ pub fn make_player(pos: Coord) -> Player {
         max_health: health,
         health: health,
         gold: 0,
-        disguised: false,
+        disguise: None,
         noisy: false,
         damaged_last_turn: false,
         turns_remaining_underwater: 0,
@@ -239,7 +255,7 @@ impl Player {
             return false;
         }
 
-        if !self.disguised && map.hides_player(self.pos.0, self.pos.1) {
+        if self.disguise.is_none() && map.hides_player(self.pos.0, self.pos.1) {
             return true;
         }
 
@@ -465,7 +481,7 @@ pub fn all_loot_collected(&self) -> bool {
 }
 
 pub fn try_use_outfit_at(&mut self, pos: Coord, outfit_cur: ItemKind) -> Option<ItemKind> {
-    if let Some(item) = self.items.iter_mut().find(|item| item.pos == pos && (item.kind == ItemKind::Outfit1 || item.kind == ItemKind::Outfit2)) {
+    if let Some(item) = self.items.iter_mut().find(|item| item.pos == pos && is_outfit_kind(item.kind) && item.kind != outfit_cur) {
         if item.kind != outfit_cur {
             let outfit_new = item.kind;
             item.kind = outfit_cur;
@@ -480,7 +496,7 @@ pub fn is_guard_at(&self, pos: Coord) -> bool {
 }
 
 pub fn is_outfit_at(&self, pos: Coord) -> bool {
-    self.items.iter().any(|item| (item.kind == ItemKind::Outfit1 || item.kind == ItemKind::Outfit2) && item.pos == pos)
+    self.items.iter().any(|item| (is_outfit_kind(item.kind)) && item.pos == pos)
 }
 
 pub fn random_neighbor_region(&self, random: &mut Random, region: usize, region_exclude: usize) -> usize {
