@@ -296,16 +296,6 @@ fn a_right_of_b(ax: i32, ay: i32, bx: i32, by: i32) -> bool {
     ax * by > ay * bx
 }
 
-fn allowed_direction(tile_type: CellType, dx: i32, dy: i32) -> bool {
-    match tile_type {
-        CellType::OneWayWindowE => dx > 0,
-        CellType::OneWayWindowW => dx < 0,
-        CellType::OneWayWindowN => dy > 0,
-        CellType::OneWayWindowS => dy < 0,
-        _ => true
-    }
-}
-
 impl Map {
 
 pub fn collect_loot_at(&mut self, pos: Coord) -> usize {
@@ -383,9 +373,6 @@ pub fn player_can_see_in_direction(&self, pos_viewer: Coord, dir: Coord) -> bool
         return true;
     }
 
-    if !allowed_direction(self.cells[[pos_target.0 as usize, pos_target.1 as usize]].cell_type, dir.0, dir.1) {
-        return false;
-    }
     !self.blocks_player_sight(pos_target.0, pos_target.1)
 }
 
@@ -413,11 +400,6 @@ fn compute_visibility(
     let (dx, dy) = (2 * (target_x - viewer_x), 2 * (target_y - viewer_y));
 
     if dx*dx + dy*dy > 1600 {
-        return;
-    }
-
-    // End recursion if the incoming direction is not allowed by the current cell type.
-    if !allowed_direction(self.cells[[target_x as usize, target_y as usize]].cell_type, dx, dy) {
         return;
     }
 
