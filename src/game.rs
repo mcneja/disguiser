@@ -485,6 +485,7 @@ const DIRS: [Coord; 4] = [
 ];
 
 fn advance_time(game: &mut Game) {
+    /*
     if game.map.cells[[game.player.pos.0 as usize, game.player.pos.1 as usize]].cell_type == CellType::GroundWater {
         if game.player.turns_remaining_underwater > 0 {
             game.player.turns_remaining_underwater -= 1;
@@ -492,6 +493,7 @@ fn advance_time(game: &mut Game) {
     } else {
         game.player.turns_remaining_underwater = 7;
     }
+    */
 
     guard_act_all(&mut game.random, game.see_all, &mut game.popups, &mut game.lines, &mut game.map, &mut game.player);
 

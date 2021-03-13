@@ -1919,7 +1919,7 @@ fn cache_cell_info(map: &mut Map) {
         if kind == ItemKind::DoorNS || kind == ItemKind::DoorEW || kind == ItemKind::PortcullisNS || kind == ItemKind::PortcullisEW || kind == ItemKind::Bush {
             cell.blocks_sight = true;
         }
-        if kind == ItemKind::Table || kind == ItemKind::Bush {
+        if kind == ItemKind::Bush {
             cell.hides_player = true;
         }
     }

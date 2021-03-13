@@ -243,7 +243,7 @@ impl Player {
             return false;
         }
 
-        if self.disguise.is_none() && map.hides_player(self.pos.0, self.pos.1) {
+        if map.hides_player(self.pos.0, self.pos.1) {
             return true;
         }
 
