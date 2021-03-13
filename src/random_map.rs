@@ -4,7 +4,8 @@ use crate::coord::Coord;
 use crate::guard;
 
 use rand::prelude::{Rng, SliceRandom};
-use std::cmp::{Ordering, min, max};
+use std::cmp::{min, max};
+use std::collections::VecDeque;
 use std::mem::swap;
 use multiarray::Array2D;
 
@@ -120,7 +121,8 @@ fn generate_siheyuan(random: &mut Random, level: usize) -> Map {
     // Place outfits.
 
     if level > 1 {
-        place_outfits(random, &rooms, &mut map);
+        place_inner_outfit(random, &rooms, &adjacencies, &mut map);
+        place_outer_outfit(random, &rooms, &adjacencies, &mut map);
     }
 
     // Place loot.
@@ -1562,40 +1564,100 @@ fn place_item(map: &mut Map, x: i32, y: i32, item_kind: ItemKind) {
     );
 }
 
-fn place_outfits(random: &mut Random, rooms: &[Room], map: &mut Map) {
+fn place_inner_outfit(random: &mut Random, rooms: &[Room], adjacencies: &[Adjacency], map: &mut Map) {
+    let seed_room_indices: Vec<usize> = (0..rooms.len())
+        .filter(|i| {
+            let t = rooms[*i].room_type;
+            t != RoomType::PrivateCourtyard && t != RoomType::PrivateRoom
+        })
+        .collect();
+    let room_dist: Vec<usize> = compute_room_distances(rooms, adjacencies, &seed_room_indices);
+    let max_room_dist: usize = room_dist.iter().fold(0, |acc, i| if room_dist[*i] == usize::MAX {acc} else {max(acc, room_dist[*i])});
+    let mut usable_rooms: Vec<&Room> = (0..rooms.len())
+        .filter(|i| room_dist[*i] + 1 >= max_room_dist)
+        .map(|i| &rooms[i])
+        .filter(|room| room.room_type == RoomType::PrivateCourtyard || room.room_type == RoomType::PrivateRoom)
+        .collect();
 
-    let room_order = |room0: &&Room, room1: &&Room| {
-        if room0.dead_end && !room1.dead_end {
-            return Ordering::Less;
-        } else if !room0.dead_end && room1.dead_end {
-            return Ordering::Greater;
+    usable_rooms.shuffle(random);
+
+    for room in usable_rooms {
+        if try_place_outfit(random, room.pos_min, room.pos_max, map, guard::GuardKind::Inner) {
+            break;
         }
-        if room0.depth >= 2 && room1.depth < 2 {
-            return Ordering::Less;
-        } else if room0.depth < 2 && room1.depth >= 2 {
-            return Ordering::Greater;
+    }
+}
+
+fn place_outer_outfit(random: &mut Random, rooms: &[Room], adjacencies: &[Adjacency], map: &mut Map) {
+    let seed_room_indices: Vec<usize> = (0..rooms.len())
+        .filter(|i| rooms[*i].room_type == RoomType::Exterior)
+        .collect();
+    let room_dist = compute_room_distances(rooms, adjacencies, &seed_room_indices);
+    let max_room_dist: usize = room_dist.iter().fold(0, |acc, i| {
+        let room = &rooms[*i];
+        let dist = room_dist[*i];
+        if room.room_type == RoomType::PublicCourtyard || room.room_type == RoomType::PublicRoom {
+            max(acc, dist)
+        } else {
+            acc
         }
-        Ordering::Equal
-    };
+    });
+    let mut usable_rooms: Vec<&Room> = (0..rooms.len())
+        .filter(|i| {
+            let t = rooms[*i].room_type;
+            if t != RoomType::PublicCourtyard && t != RoomType::PublicRoom {
+                return false;
+            }
+            room_dist[*i] + 1 >= max_room_dist
+        })
+        .map(|i| &rooms[i])
+        .collect();
 
-    let mut rooms_ordered: Vec<&Room> = rooms.iter().collect();
-    rooms_ordered.retain(|room| room.room_type != RoomType::Exterior);
-    rooms_ordered.shuffle(random);
-    rooms_ordered.sort_by(room_order);
+    usable_rooms.shuffle(random);
 
-    let outfits = vec![guard::GuardKind::Outer, guard::GuardKind::Inner];
-    let mut outfit_index = 0;
+    for room in usable_rooms {
+        if try_place_outfit(random, room.pos_min, room.pos_max, map, guard::GuardKind::Outer) {
+            break;
+        }
+    }
+}
 
-    let mut num_outfits: usize = max(1, min(outfits.len(), rooms.len() / 12));
-    for room in rooms_ordered {
-        if try_place_outfit(random, room.pos_min, room.pos_max, map, outfits[outfit_index]) {
-            outfit_index += 1;
-            num_outfits -= 1;
-            if num_outfits == 0 {
-                break;
+fn compute_room_distances(rooms: &[Room], adjacencies: &[Adjacency], seed_room_indices: &[usize]) -> Vec<usize> {
+
+    const UNVISITED_DIST: usize = usize::MAX;
+    let mut distance: Vec<usize> = vec!(UNVISITED_DIST; rooms.len());
+
+    // Push all the seed rooms onto a vec to visit
+
+    let mut rooms_to_visit: VecDeque<(usize, usize)> = VecDeque::with_capacity(rooms.len());
+
+    for room_index in seed_room_indices {
+        rooms_to_visit.push_back((*room_index, 0));
+    }
+
+    // Visit rooms in queue order, pushing their neighbors onto the back of the queue for visiting
+
+    while let Some((room_index, dist)) = rooms_to_visit.pop_front() {
+        if dist >= distance[room_index] {
+            continue;
+        }
+        distance[room_index] = dist;
+        let dist_neighbor = dist + 1;
+        for adj_index in &rooms[room_index].edges {
+            let adj = &adjacencies[*adj_index];
+            if !adj.door {
+                continue;
+            }
+
+            let i_room_neighbor = if adj.room_left == room_index {adj.room_right} else {adj.room_left};
+
+            if dist_neighbor < distance[i_room_neighbor] {
+                rooms_to_visit.push_back((i_room_neighbor, dist_neighbor));
             }
         }
     }
+
+    distance
 }
 
 fn try_place_outfit(random: &mut Random, pos_min: Coord, pos_max: Coord, map: &mut Map, outfit_kind: guard::GuardKind) -> bool
