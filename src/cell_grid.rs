@@ -214,7 +214,7 @@ pub fn guard_move_cost_for_item_kind(kind: ItemKind) -> usize {
         ItemKind::DoorEW => 0,
         ItemKind::PortcullisNS => 0,
         ItemKind::PortcullisEW => 0,
-        ItemKind::Outfit(_) => INFINITE_COST,
+        ItemKind::Outfit(_) => 10,
     }
 }
 
