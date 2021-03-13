@@ -284,8 +284,9 @@ fn act(&mut self, random: &mut Random, see_all: bool, popups: &mut Popups, lines
     // Update state based on target visibility from new position
 
     if self.sees_thief(map, player) {
-        if self.mode == GuardMode::Patrol && (player.disguise.is_some() || !self.adjacent_to(player.pos)) {
-            self.mode = if player.disguise.is_some() {GuardMode::LookAtDisguised} else {GuardMode::Look};
+        let disguised = player.is_appropriately_disguised(map);
+        if self.mode == GuardMode::Patrol && (disguised || !self.adjacent_to(player.pos)) {
+            self.mode = if disguised {GuardMode::LookAtDisguised} else {GuardMode::Look};
             self.mode_timeout = random.gen_range(3..6);
         } else {
             self.mode = GuardMode::ChaseVisibleTarget;
@@ -381,7 +382,7 @@ fn sees_thief(&self, map: &Map, player: &Player) -> bool {
         return false;
     }
 
-    let thief_disguised = player.disguise.is_some() && self.mode != GuardMode::ChaseVisibleTarget;
+    let thief_disguised = self.mode != GuardMode::ChaseVisibleTarget && player.is_appropriately_disguised(map);
 
     let player_is_lit = !thief_disguised && map.cells[[player.pos.0 as usize, player.pos.1 as usize]].lit;
 
@@ -422,7 +423,7 @@ fn patrol_step(&mut self, map: &Map, player: &mut Player, random: &mut Random) {
         self.region_goal = map.random_neighbor_region(random, self.region_goal, region_prev, self.kind);
     }
 
-    if bumped_thief && player.disguise.is_none() {
+    if bumped_thief && !player.is_appropriately_disguised(map) {
         self.mode = GuardMode::ChaseVisibleTarget;
         self.goal = player.pos;
         self.dir = update_dir(self.dir, self.goal - self.pos);

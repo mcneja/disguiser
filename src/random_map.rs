@@ -326,6 +326,7 @@ fn plot_walls(inside: &Array2D<bool>, offset_x: &Array2D<i32>, offset_y: &Array2
         hides_player: false,
         lit: false,
         seen: false,
+        inner: false,
     };
     let mut map = CellGrid::new([map_x as usize, map_y as usize], default_cell);
 
@@ -1220,13 +1221,13 @@ fn assign_room_types(room_index: &Array2D<usize>, adjacencies: &[Adjacency], roo
         depth -= 1;
     }
 
-    // Change any private courtyards that are adjacent to public courtyards into public courtyards
+    // Change any public courtyards that are adjacent to private courtyards into private courtyards
 
     loop {
         let mut changed = false;
 
         for i_room in 0..rooms.len() {
-            if rooms[i_room].room_type != RoomType::PrivateCourtyard {
+            if rooms[i_room].room_type != RoomType::PublicCourtyard {
                 continue;
             }
 
@@ -1235,8 +1236,8 @@ fn assign_room_types(room_index: &Array2D<usize>, adjacencies: &[Adjacency], roo
 
                 let i_room_other = if adj.room_left != i_room {adj.room_left} else {adj.room_right};
 
-                if rooms[i_room_other].room_type == RoomType::PublicCourtyard {
-                    rooms[i_room].room_type = RoomType::PublicCourtyard;
+                if rooms[i_room_other].room_type == RoomType::PrivateCourtyard {
+                    rooms[i_room].room_type = RoomType::PrivateCourtyard;
                     changed = true;
                     break;
                 }
@@ -1414,6 +1415,14 @@ fn render_rooms(_level: usize, rooms: &[Room], map: &mut Map, random: &mut Rando
                 */
 
                 map.cells[[x as usize, y as usize]].cell_type = cell_type; // t;
+            }
+        }
+
+        if room.room_type == RoomType::PrivateCourtyard || room.room_type == RoomType::PrivateRoom {
+            for x in room.pos_min.0 - 1 .. room.pos_max.0 + 1 {
+                for y in room.pos_min.1 - 1 .. room.pos_max.1 + 1 {
+                    map.cells[[x as usize, y as usize]].inner = true;
+                }
             }
         }
 

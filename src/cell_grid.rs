@@ -62,6 +62,7 @@ pub struct Cell {
     pub hides_player: bool,
     pub lit: bool,
     pub seen: bool,
+    pub inner: bool,
 }
 
 pub type CellGrid = Array2D<Cell>;
@@ -253,6 +254,15 @@ impl Player {
         }
 
         false
+    }
+
+    pub fn is_appropriately_disguised(&self, map: &Map) -> bool {
+        let cell = &map.cells[[self.pos.0 as usize, self.pos.1 as usize]];
+        match self.disguise {
+            None => {false},
+            Some(guard::GuardKind::Outer) => {!cell.inner},
+            Some(guard::GuardKind::Inner) => {true},
+        }
     }
 }
 
