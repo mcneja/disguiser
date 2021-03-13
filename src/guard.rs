@@ -419,7 +419,7 @@ fn patrol_step(&mut self, map: &Map, player: &mut Player, random: &mut Random) {
     if map.cells[[self.pos.0 as usize, self.pos.1 as usize]].region == self.region_goal {
         let region_prev = self.region_prev;
         self.region_prev = self.region_goal;
-        self.region_goal = map.random_neighbor_region(random, self.region_goal, region_prev);
+        self.region_goal = map.random_neighbor_region(random, self.region_goal, region_prev, self.kind);
     }
 
     if bumped_thief && player.disguise.is_none() {
@@ -486,10 +486,12 @@ pub fn setup_goal_region(&mut self, random: &mut Random, map: &Map) {
         return;
     }
 
-    if region_cur == INVALID_REGION {
-        self.region_goal = map.closest_region(self.pos);
+    let outer_only = self.kind == GuardKind::Outer;
+
+    if region_cur == INVALID_REGION || (outer_only && map.patrol_regions[region_cur].inner) {
+        self.region_goal = map.closest_region(self.pos, outer_only);
     } else {
-        self.region_goal = map.random_neighbor_region(random, region_cur, self.region_prev);
+        self.region_goal = map.random_neighbor_region(random, region_cur, self.region_prev, self.kind);
         self.region_prev = region_cur;
     }
 }

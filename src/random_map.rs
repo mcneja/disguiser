@@ -1,5 +1,5 @@
 use crate::cell_grid;
-use crate::cell_grid::{Cell, CellGrid, CellType, INVALID_REGION, Item, ItemKind, Map, Random, Rect};
+use crate::cell_grid::{Cell, CellGrid, CellType, INVALID_REGION, Item, ItemKind, Map, PatrolRegion, Random, Rect};
 use crate::coord::Coord;
 use crate::guard;
 
@@ -17,9 +17,10 @@ const ROOM_SIZE_Y: i32 = 5;
 enum RoomType
 {
     Exterior,
-    Courtyard,
-    Interior,
-    MasterSuite,
+    PublicCourtyard,
+    PublicRoom,
+    PrivateCourtyard,
+    PrivateRoom,
 }
 
 struct Room
@@ -27,6 +28,8 @@ struct Room
     pub room_type: RoomType,
     pub group: usize,
     pub depth: usize,
+    pub dead_end: bool,
+    pub patroller: Option<guard::GuardKind>,
     pub pos_min: Coord,
     pub pos_max: Coord,
     pub edges: Vec<usize>,
@@ -117,7 +120,7 @@ fn generate_siheyuan(random: &mut Random, level: usize) -> Map {
     // Place outfits.
 
     if level > 1 {
-        place_outfits(random, &rooms, &adjacencies, &mut map);
+        place_outfits(random, &rooms, &mut map);
     }
 
     // Place loot.
@@ -133,7 +136,10 @@ fn generate_siheyuan(random: &mut Random, level: usize) -> Map {
 
 //  init_pathing(map);
 
-    place_guards(random, level, &rooms, &mut map);
+    if level > 0 {
+        place_guards_by_type(random, level, &rooms, &mut map, guard::GuardKind::Inner);
+        place_guards_by_type(random, level, &rooms, &mut map, guard::GuardKind::Outer);
+    }
 
     mark_exterior_as_seen(&mut map);
 
@@ -503,6 +509,8 @@ fn create_exits(
             room_type: RoomType::Exterior,
             group: 0,
             depth: 0,
+            dead_end: true,
+            patroller: None,
             pos_min: Coord(0, 0), // not meaningful for this room
             pos_max: Coord(0, 0), // not meaningful for this room
             edges: Vec::new(),
@@ -517,9 +525,11 @@ fn create_exits(
 
             rooms.push(
                 Room {
-                    room_type: if inside[[rx, ry]] {RoomType::Interior} else {RoomType::Courtyard},
+                    room_type: if inside[[rx, ry]] {RoomType::PublicRoom} else {RoomType::PublicCourtyard},
                     group: group_index,
                     depth: 0,
+                    dead_end: false,
+                    patroller: None,
                     pos_min: Coord(offset_x[[rx, ry]] + 1, offset_y[[rx, ry]] + 1),
                     pos_max: Coord(offset_x[[rx + 1, ry]], offset_y[[rx, ry + 1]]),
                     edges: Vec::new(),
@@ -543,7 +553,7 @@ fn create_exits(
 
     // Generate pathing information.
 
-    generate_patrol_routes(map, &rooms, &adjacencies);
+    generate_patrol_routes(map, &mut rooms, &adjacencies);
 
     // Render doors and windows.
 
@@ -962,7 +972,7 @@ fn connect_rooms(random: &mut Random, rooms: &mut [Room], adjacencies: &mut [Adj
     for adj in adjacencies.iter_mut() {
         let i0 = adj.room_left;
         let i1 = adj.room_right;
-        if rooms[i0].room_type != RoomType::Courtyard || rooms[i1].room_type != RoomType::Courtyard {
+        if rooms[i0].room_type != RoomType::PublicCourtyard || rooms[i1].room_type != RoomType::PublicCourtyard {
             continue;
         }
 
@@ -984,14 +994,14 @@ fn connect_rooms(random: &mut Random, rooms: &mut [Room], adjacencies: &mut [Adj
             let i0 = adj.room_left;
             let i1 = adj.room_right;
 
-            if rooms[i0].room_type != RoomType::Interior || rooms[i1].room_type != RoomType::Interior {
+            if rooms[i0].room_type != RoomType::PublicRoom || rooms[i1].room_type != RoomType::PublicRoom {
                 continue;
             }
 
             let group0 = rooms[i0].group;
             let group1 = rooms[i1].group;
 
-            if group0 != group1 || random.gen_bool(1.0 / 3.0) {
+            if group0 != group1 || random.gen_bool(0.4) {
                 adj.door = true;
                 added_door = true;
                 join_groups(rooms, group0, group1);
@@ -1040,7 +1050,7 @@ fn connect_rooms(random: &mut Random, rooms: &mut [Room], adjacencies: &mut [Adj
             let group0 = rooms[i0].group;
             let group1 = rooms[i1].group;
 
-            if group0 != group1 || random.gen_bool(1.0 / 3.0) {
+            if group0 != group1 || random.gen_bool(0.4) {
                 adj.door = true;
                 added_door = true;
                 join_groups(rooms, group0, group1);
@@ -1189,7 +1199,7 @@ fn assign_room_types(room_index: &Array2D<usize>, adjacencies: &[Adjacency], roo
     let mut depth = max_depth;
     while depth > 0 {
         for room in rooms.iter_mut() {
-            if room.room_type != RoomType::Interior {
+            if room.room_type != RoomType::PublicRoom && room.room_type != RoomType::PublicCourtyard {
                 continue;
             }
 
@@ -1197,8 +1207,10 @@ fn assign_room_types(room_index: &Array2D<usize>, adjacencies: &[Adjacency], roo
                 continue;
             }
 
-            room.room_type = RoomType::MasterSuite;
-            num_master_rooms += 1;
+            room.room_type = if room.room_type == RoomType::PublicRoom {RoomType::PrivateRoom} else {RoomType::PrivateCourtyard};
+            if room.room_type == RoomType::PrivateRoom {
+                num_master_rooms += 1;
+            }
         }
 
         if num_master_rooms >= target_num_master_rooms {
@@ -1206,6 +1218,34 @@ fn assign_room_types(room_index: &Array2D<usize>, adjacencies: &[Adjacency], roo
         }
 
         depth -= 1;
+    }
+
+    // Change any private courtyards that are adjacent to public courtyards into public courtyards
+
+    loop {
+        let mut changed = false;
+
+        for i_room in 0..rooms.len() {
+            if rooms[i_room].room_type != RoomType::PrivateCourtyard {
+                continue;
+            }
+
+            for i_adj in &rooms[i_room].edges {
+                let adj = &adjacencies[*i_adj];
+
+                let i_room_other = if adj.room_left != i_room {adj.room_left} else {adj.room_right};
+
+                if rooms[i_room_other].room_type == RoomType::PublicCourtyard {
+                    rooms[i_room].room_type = RoomType::PublicCourtyard;
+                    changed = true;
+                    break;
+                }
+            }
+        }
+
+        if !changed {
+            break;
+        }
     }
 }
 
@@ -1217,6 +1257,16 @@ const ONE_WAY_WINDOW: [CellType; 5] = [
     CellType::OneWayWindowN,
 ];
 
+fn is_courtyard_room_type(room_type: RoomType) -> bool {
+    match room_type {
+        RoomType::Exterior => false,
+        RoomType::PublicCourtyard => true,
+        RoomType::PublicRoom => false,
+        RoomType::PrivateCourtyard => true,
+        RoomType::PrivateRoom => false,
+    }
+}
+
 fn render_walls(random: &mut Random, rooms: &[Room], adjacencies: &[Adjacency], map: &mut Map) {
 
     // Render grass connecting courtyard rooms.
@@ -1225,7 +1275,7 @@ fn render_walls(random: &mut Random, rooms: &[Room], adjacencies: &[Adjacency], 
         let type0 = rooms[adj.room_left].room_type;
         let type1 = rooms[adj.room_right].room_type;
 
-        if type0 != RoomType::Courtyard || type1 != RoomType::Courtyard {
+        if !is_courtyard_room_type(type0) || !is_courtyard_room_type(type1) {
             continue;
         }
 
@@ -1243,7 +1293,7 @@ fn render_walls(random: &mut Random, rooms: &[Room], adjacencies: &[Adjacency], 
         let type0 = rooms[adj0.room_left].room_type;
         let type1 = rooms[adj0.room_right].room_type;
 
-        if type0 == RoomType::Courtyard && type1 == RoomType::Courtyard {
+        if is_courtyard_room_type(type0) && is_courtyard_room_type(type1) {
             continue;
         }
 
@@ -1287,14 +1337,14 @@ fn render_walls(random: &mut Random, rooms: &[Room], adjacencies: &[Adjacency], 
                         map.cells[[p.0 as usize, p.1 as usize]].cell_type = ONE_WAY_WINDOW[(2 * dir.0 + dir.1 + 2) as usize];
                     }
                 }
-            } else if type0 == RoomType::Courtyard || type1 == RoomType::Courtyard {
+            } else if is_courtyard_room_type(type0) || is_courtyard_room_type(type1) {
                 let mut k = random.gen_range(0..2);
                 let k_end = (adj0.length + 1) / 2;
 
                 while k < k_end {
                     for a in &walls {
                         let dir =
-                            if rooms[a.room_right].room_type == RoomType::Courtyard {
+                            if is_courtyard_room_type(rooms[a.room_right].room_type) {
                                 -a.dir
                             } else {
                                 a.dir
@@ -1313,7 +1363,7 @@ fn render_walls(random: &mut Random, rooms: &[Room], adjacencies: &[Adjacency], 
             }
         }
 
-        let install_master_suite_door = random.gen_bool(0.4);
+        let install_master_suite_door = random.gen_bool(0.3333);
 
         for a in &walls {
             if !a.door {
@@ -1332,7 +1382,7 @@ fn render_walls(random: &mut Random, rooms: &[Room], adjacencies: &[Adjacency], 
             if room_type_left == RoomType::Exterior || room_type_right == RoomType::Exterior {
                 map.cells[[p.0 as usize, p.1 as usize]].cell_type = if orient_ns {CellType::PortcullisNS} else {CellType::PortcullisEW};
                 place_item(map, p.0, p.1, if orient_ns {ItemKind::PortcullisNS} else {ItemKind::PortcullisEW});
-            } else if room_type_left != RoomType::MasterSuite || room_type_right != RoomType::MasterSuite || install_master_suite_door {
+            } else if room_type_left != RoomType::PrivateRoom || room_type_right != RoomType::PrivateRoom || install_master_suite_door {
                 map.cells[[p.0 as usize, p.1 as usize]].cell_type = if orient_ns {CellType::DoorNS} else {CellType::DoorEW};
                 place_item(map, p.0, p.1, if orient_ns {ItemKind::DoorNS} else {ItemKind::DoorEW});
             }
@@ -1344,14 +1394,13 @@ fn render_rooms(_level: usize, rooms: &[Room], map: &mut Map, random: &mut Rando
     for i_room in 1..rooms.len() {
         let room = &rooms[i_room];
 
-        let cell_type =
-            if room.room_type == RoomType::Courtyard {
-                CellType::GroundGrass
-            } else if room.room_type == RoomType::MasterSuite {
-                CellType::GroundMarble
-            } else {
-                CellType::GroundWood
-            };
+        let cell_type = match room.room_type {
+            RoomType::Exterior => CellType::GroundNormal,
+            RoomType::PublicCourtyard => CellType::GroundGrass,
+            RoomType::PublicRoom => CellType::GroundWood,
+            RoomType::PrivateCourtyard => CellType::GroundGrass,
+            RoomType::PrivateRoom => CellType::GroundMarble,
+        };
 
         for x in room.pos_min.0..room.pos_max.0 {
             for y in room.pos_min.1..room.pos_max.1 {
@@ -1371,7 +1420,7 @@ fn render_rooms(_level: usize, rooms: &[Room], map: &mut Map, random: &mut Rando
         let dx = room.pos_max.0 - room.pos_min.0;
         let dy = room.pos_max.1 - room.pos_min.1;
 
-        if room.room_type == RoomType::Courtyard {
+        if is_courtyard_room_type(room.room_type) {
             if dx >= 5 && dy >= 5 {
                 for x in room.pos_min.0 + 1 .. room.pos_max.0 - 1 {
                     for y in room.pos_min.1 + 1 .. room.pos_max.1 - 1 {
@@ -1384,9 +1433,9 @@ fn render_rooms(_level: usize, rooms: &[Room], map: &mut Map, random: &mut Rando
                 try_place_bush(map, room.pos_min.0, room.pos_max.1 - 1);
                 try_place_bush(map, room.pos_max.0 - 1, room.pos_max.1 - 1);
             }
-        } else if room.room_type == RoomType::Interior || room.room_type == RoomType::MasterSuite {
+        } else if room.room_type == RoomType::PublicRoom || room.room_type == RoomType::PrivateRoom {
             if dx >= 5 && dy >= 5 {
-                if room.room_type == RoomType::MasterSuite {
+                if room.room_type == RoomType::PrivateRoom {
                     for x in 2..dx-2 {
                         for y in 2..dy-2 {
                             map.cells[[(room.pos_min.0 + x) as usize, (room.pos_min.1 + y) as usize]].cell_type = CellType::GroundWater;
@@ -1398,13 +1447,13 @@ fn render_rooms(_level: usize, rooms: &[Room], map: &mut Map, random: &mut Rando
                 map.cells[[(room.pos_max.0 - 2) as usize, (room.pos_min.1 + 1) as usize]].cell_type = CellType::Wall0000;
                 map.cells[[(room.pos_min.0 + 1) as usize, (room.pos_max.1 - 2) as usize]].cell_type = CellType::Wall0000;
                 map.cells[[(room.pos_max.0 - 2) as usize, (room.pos_max.1 - 2) as usize]].cell_type = CellType::Wall0000;
-            } else if dx == 5 && dy >= 3 && (room.room_type == RoomType::Interior || random.gen_bool(1.0 / 3.0)) {
+            } else if dx == 5 && dy >= 3 && (room.room_type == RoomType::PublicRoom || random.gen_bool(1.0 / 3.0)) {
                 for y in 1..dy-1 {
                     place_item(map, room.pos_min.0 + 1, room.pos_min.1 + y, ItemKind::Chair);
                     place_item(map, room.pos_min.0 + 2, room.pos_min.1 + y, ItemKind::Table);
                     place_item(map, room.pos_min.0 + 3, room.pos_min.1 + y, ItemKind::Chair);
                 }
-            } else if dy == 5 && dx >= 3 && (room.room_type == RoomType::Interior || random.gen_bool(1.0 / 3.0)) {
+            } else if dy == 5 && dx >= 3 && (room.room_type == RoomType::PublicRoom || random.gen_bool(1.0 / 3.0)) {
                 for x in 1..dx-1 {
                     place_item(map, room.pos_min.0 + x, room.pos_min.1 + 1, ItemKind::Chair);
                     place_item(map, room.pos_min.0 + x, room.pos_min.1 + 2, ItemKind::Table);
@@ -1413,7 +1462,7 @@ fn render_rooms(_level: usize, rooms: &[Room], map: &mut Map, random: &mut Rando
             } else if dx > dy && (dy & 1) == 1 && random.gen_bool(2.0 / 3.0) {
                 let y = room.pos_min.1 + dy / 2;
 
-                if room.room_type == RoomType::Interior {
+                if room.room_type == RoomType::PublicRoom {
                     try_place_table(map, room.pos_min.0 + 1, y);
                     try_place_table(map, room.pos_max.0 - 2, y);
                 } else {
@@ -1423,7 +1472,7 @@ fn render_rooms(_level: usize, rooms: &[Room], map: &mut Map, random: &mut Rando
             } else if dy > dx && (dx & 1) == 1 && random.gen_bool(2.0 / 3.0) {
                 let x = room.pos_min.0 + dx / 2;
 
-                if room.room_type == RoomType::Interior {
+                if room.room_type == RoomType::PublicRoom {
                     try_place_table(map, x, room.pos_min.1 + 1);
                     try_place_table(map, x, room.pos_max.1 - 2);
                 } else {
@@ -1431,7 +1480,7 @@ fn render_rooms(_level: usize, rooms: &[Room], map: &mut Map, random: &mut Rando
                     try_place_chair(map, x, room.pos_max.1 - 2);
                 }
             } else if dx > 3 && dy > 3 {
-                if room.room_type == RoomType::Interior {
+                if room.room_type == RoomType::PublicRoom {
                     try_place_table(map, room.pos_min.0, room.pos_min.1);
                     try_place_table(map, room.pos_max.0 - 1, room.pos_min.1);
                     try_place_table(map, room.pos_min.0, room.pos_max.1 - 1);
@@ -1504,30 +1553,24 @@ fn place_item(map: &mut Map, x: i32, y: i32, item_kind: ItemKind) {
     );
 }
 
-fn place_outfits(random: &mut Random, rooms: &Vec<Room>, adjacencies: &[Adjacency], map: &mut Map) {
-
-    let num_exits = |room: &Room| {
-        room.edges.iter().filter(|i_adj| adjacencies[**i_adj].door).count()
-    };
+fn place_outfits(random: &mut Random, rooms: &[Room], map: &mut Map) {
 
     let room_order = |room0: &&Room, room1: &&Room| {
-        let num_exits0 = num_exits(room0);
-        let num_exits1 = num_exits(room1);
-        if num_exits0 < num_exits1 {
+        if room0.dead_end && !room1.dead_end {
             return Ordering::Less;
-        } else if num_exits0 > num_exits1 {
+        } else if !room0.dead_end && room1.dead_end {
             return Ordering::Greater;
         }
-        if room0.room_type == RoomType::MasterSuite && room1.room_type != RoomType::MasterSuite {
+        if room0.depth >= 2 && room1.depth < 2 {
             return Ordering::Less;
-        } else if room0.room_type != RoomType::MasterSuite && room1.room_type == RoomType::MasterSuite {
+        } else if room0.depth < 2 && room1.depth >= 2 {
             return Ordering::Greater;
         }
         Ordering::Equal
     };
 
     let mut rooms_ordered: Vec<&Room> = rooms.iter().collect();
-    rooms_ordered.retain(|room| room.room_type == RoomType::Interior || room.room_type == RoomType::MasterSuite);
+    rooms_ordered.retain(|room| room.room_type != RoomType::Exterior);
     rooms_ordered.shuffle(random);
     rooms_ordered.sort_by(room_order);
 
@@ -1556,7 +1599,7 @@ fn try_place_outfit(random: &mut Random, pos_min: Coord, pos_max: Coord, map: &m
 
         let cell_type = map.cells[[pos.0 as usize, pos.1 as usize]].cell_type;
 
-        if cell_type != CellType::GroundWood && cell_type != CellType::GroundMarble {
+        if cell_type != CellType::GroundWood && cell_type != CellType::GroundMarble && cell_type != CellType::GroundGrass {
             continue;
         }
 
@@ -1598,7 +1641,7 @@ fn place_loot(random: &mut Random, rooms: &Vec<Room>, adjacencies: &[Adjacency],
 
     let mut num_rooms = 0;
     for room in rooms {
-        if room.room_type == RoomType::Interior || room.room_type == RoomType::MasterSuite {
+        if room.room_type == RoomType::PublicRoom || room.room_type == RoomType::PrivateRoom {
             num_rooms += 1;
         }
     }
@@ -1606,7 +1649,7 @@ fn place_loot(random: &mut Random, rooms: &Vec<Room>, adjacencies: &[Adjacency],
     // Master-suite rooms get loot.
 
     for room in rooms  {
-        if room.room_type != RoomType::MasterSuite {
+        if room.room_type != RoomType::PrivateRoom {
             continue;
         }
 
@@ -1620,7 +1663,7 @@ fn place_loot(random: &mut Random, rooms: &Vec<Room>, adjacencies: &[Adjacency],
     // Dead-end rooms automatically get loot.
 
     for room in rooms.iter() {
-        if room.room_type != RoomType::Interior && room.room_type != RoomType::MasterSuite {
+        if room.room_type != RoomType::PublicRoom && room.room_type != RoomType::PrivateRoom {
             continue;
         }
 
@@ -1746,35 +1789,23 @@ fn place_front_pillars(map: &mut Map) {
     }
 }
 
-fn place_guards(random: &mut Random, level: usize, rooms: &Vec<Room>, map: &mut Map) {
-    if level <= 0 {
-        return;
-    }
+fn place_guards_by_type(random: &mut Random, level: usize, rooms: &[Room], map: &mut Map, guard_kind: guard::GuardKind) {
 
-    // Count number of internal rooms.
-
-    let mut num_rooms = 0;
-    for room in rooms.iter() {
-        if room.room_type == RoomType::Interior || room.room_type == RoomType::MasterSuite {
-            num_rooms += 1;
-        }
-    }
+    let num_rooms = rooms.iter().filter(|room| room.patroller == Some(guard_kind)).count();
 
     // Generate guards
 
     let mut num_guards =
-        if level == 1 {
+        if level == 1 && num_rooms > 0 {
             1
         } else {
-            max(2, (num_rooms * min(level + 18, 40)) / 100)
+            (num_rooms * min(level + 18, 40) + 99) / 100
         };
 
     while num_guards > 0 {
         if let Some(pos) = generate_initial_guard_pos(random, &map) {
-            if let Some(guard_kind) = vec![guard::GuardKind::Inner, guard::GuardKind::Outer].choose(random) {
-                place_guard(random, map, pos, *guard_kind);
-                num_guards -= 1;
-            }
+            place_guard(random, map, pos, guard_kind);
+            num_guards -= 1;
         }
     }
 }
@@ -1885,16 +1916,8 @@ fn cache_cell_info(map: &mut Map) {
     }
 }
 
-fn generate_patrol_routes(map: &mut Map, rooms: &[Room], adjacencies: &[Adjacency]) {
-    let mut include_room = vec![true; rooms.len()];
-
-    // Exclude exterior rooms.
-
-    for i_room in 0..rooms.len() {
-        if rooms[i_room].room_type == RoomType::Exterior {
-            include_room[i_room] = false;
-        }
-    }
+fn non_dead_end_rooms<F>(rooms: &[Room], adjacencies: &[Adjacency], accept_room: F) -> Vec<bool> where F: Fn(&Room) -> bool {
+    let mut include_room: Vec<bool> = rooms.iter().map(accept_room).collect();
 
     // Trim dead ends out repeatedly until no more can be trimmed.
 
@@ -1932,13 +1955,23 @@ fn generate_patrol_routes(map: &mut Map, rooms: &[Room], adjacencies: &[Adjacenc
         }
     }
 
+    include_room
+}
+
+fn generate_patrol_routes(map: &mut Map, rooms: &mut [Room], adjacencies: &[Adjacency]) {
+    let general_non_dead_end_room = non_dead_end_rooms(rooms, adjacencies, |room| room.room_type != RoomType::Exterior);
+    let outer_non_dead_end_room = non_dead_end_rooms(rooms, adjacencies, |room| room.room_type != RoomType::Exterior && room.room_type != RoomType::PrivateRoom && room.room_type != RoomType::PrivateCourtyard);
+
     // Generate patrol regions for included rooms.
 
     let mut room_patrol_region = vec![INVALID_REGION; rooms.len()];
 
     for i_room in 0..rooms.len() {
-        if include_room[i_room] {
-            room_patrol_region[i_room] = add_patrol_region(map, rooms[i_room].pos_min, rooms[i_room].pos_max);
+        rooms[i_room].dead_end = !general_non_dead_end_room[i_room];
+        if general_non_dead_end_room[i_room] {
+            let inner = !outer_non_dead_end_room[i_room];
+            rooms[i_room].patroller = Some(if inner {guard::GuardKind::Inner} else {guard::GuardKind::Outer});
+            room_patrol_region[i_room] = add_patrol_region(map, rooms[i_room].pos_min, rooms[i_room].pos_max, inner);
         }
     }
 
@@ -1960,13 +1993,16 @@ fn generate_patrol_routes(map: &mut Map, rooms: &[Room], adjacencies: &[Adjacenc
     }
 }
 
-fn add_patrol_region(map: &mut Map, pos_min: Coord, pos_max: Coord) -> usize {
+fn add_patrol_region(map: &mut Map, pos_min: Coord, pos_max: Coord, inner: bool) -> usize {
     let i_patrol_region = map.patrol_regions.len();
 
     map.patrol_regions.push(
-        Rect {
-            pos_min,
-            pos_max,
+        PatrolRegion {
+            rect: Rect {
+                pos_min,
+                pos_max,
+            },
+            inner,
         }
     );
 

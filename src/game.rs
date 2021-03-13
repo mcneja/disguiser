@@ -118,6 +118,18 @@ pub fn on_draw(game: &Game, screen_size_x: i32, screen_size_y: i32) {
         }
     }
 
+    // Draw all the patrol regions
+
+    if game.see_all {
+        for region in &map.patrol_regions {
+            let color = if region.inner {0x60ffff00} else {0x60ff00ff};
+            let rect = &region.rect;
+            let pos = view_offset + rect.pos_min * TILE_SIZE;
+            let size = (rect.pos_max - rect.pos_min) * TILE_SIZE;
+            engine::draw_rect(pos.0, pos.1, size.0, size.1, color);
+        }
+    }
+
     // Items
 
     for item in items {

@@ -71,9 +71,14 @@ pub struct Rect {
     pub pos_max: Coord,
 }
 
+pub struct PatrolRegion {
+    pub rect: Rect,
+    pub inner: bool,
+}
+
 pub struct Map {
     pub cells: CellGrid,
-    pub patrol_regions: Vec<Rect>,
+    pub patrol_regions: Vec<PatrolRegion>,
     pub patrol_routes: Vec<(usize, usize)>,
     pub items: Vec<Item>,
     pub guards: Vec<guard::Guard>,
@@ -485,15 +490,28 @@ pub fn is_outfit_at(&self, pos: Coord) -> bool {
     self.items.iter().any(|item| matches!(item.kind, ItemKind::Outfit(_)) && item.pos == pos)
 }
 
-pub fn random_neighbor_region(&self, random: &mut Random, region: usize, region_exclude: usize) -> usize {
+pub fn random_neighbor_region(&self, random: &mut Random, region: usize, region_exclude: usize, guard_kind: guard::GuardKind) -> usize {
     let mut neighbors: Vec<usize> = Vec::with_capacity(8);
 
     for (region0, region1) in &self.patrol_routes {
-        if *region0 == region && *region1 != region_exclude {
-            neighbors.push(*region1);
-        } else if *region1 == region && *region0 != region_exclude {
-            neighbors.push(*region0);
+        if *region0 != region && *region1 != region {
+            continue;
         }
+        let region_other = if *region0 == region {*region1} else {*region0};
+        if region_other == region_exclude {
+            continue;
+        }
+        if self.patrol_regions[region_other].inner {
+            match guard_kind {
+                guard::GuardKind::Inner => {
+                    neighbors.push(region_other);
+                },
+                guard::GuardKind::Outer => {
+                    continue;
+                },
+            }
+        }
+        neighbors.push(region_other);
     }
 
     if neighbors.is_empty() {
@@ -526,7 +544,7 @@ pub fn guard_move_cost(&self, pos_old: Coord, pos_new: Coord) -> usize {
     cost
 }
 
-pub fn closest_region(&self, pos: Coord) -> usize {
+pub fn closest_region(&self, pos: Coord, outer_only: bool) -> usize {
 
     #[derive(Copy, Clone, Eq, PartialEq)]
     struct State {
@@ -557,8 +575,9 @@ pub fn closest_region(&self, pos: Coord) -> usize {
     while let Some(State {dist, pos}) = heap.pop() {
         let p = [pos.0 as usize, pos.1 as usize];
 
-        if self.cells[p].region != INVALID_REGION {
-            return self.cells[p].region;
+        let region_index = self.cells[p].region;
+        if region_index != INVALID_REGION && !(outer_only && self.patrol_regions[region_index].inner) {
+            return region_index;
         }
 
         if dist >= dist_field[p] {
@@ -592,14 +611,14 @@ pub fn closest_region(&self, pos: Coord) -> usize {
 pub fn compute_distances_to_region(&self, i_region_goal: usize) -> Array2D<usize> {
     assert!(i_region_goal < self.patrol_regions.len());
 
-    let region = &self.patrol_regions[i_region_goal];
+    let rect = &self.patrol_regions[i_region_goal].rect;
 
     // Fill the priority queue with all of the region's locations.
 
-    let mut goal = Vec::with_capacity(((region.pos_max.0 - region.pos_min.0) * (region.pos_max.1 - region.pos_min.1)) as usize);
+    let mut goal = Vec::with_capacity(((rect.pos_max.0 - rect.pos_min.0) * (rect.pos_max.1 - rect.pos_min.1)) as usize);
 
-    for x in region.pos_min.0 .. region.pos_max.0 {
-        for y in region.pos_min.1 .. region.pos_max.1 {
+    for x in rect.pos_min.0 .. rect.pos_max.0 {
+        for y in rect.pos_min.1 .. rect.pos_max.1 {
             let p = Coord(x, y);
             goal.push((self.guard_cell_cost(x as usize, y as usize), p));
         }
