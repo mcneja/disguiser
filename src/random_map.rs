@@ -29,7 +29,6 @@ struct Room
     pub room_type: RoomType,
     pub group: usize,
     pub depth: usize,
-    pub dead_end: bool,
     pub patroller: Option<guard::GuardKind>,
     pub pos_min: Coord,
     pub pos_max: Coord,
@@ -512,7 +511,6 @@ fn create_exits(
             room_type: RoomType::Exterior,
             group: 0,
             depth: 0,
-            dead_end: true,
             patroller: None,
             pos_min: Coord(0, 0), // not meaningful for this room
             pos_max: Coord(0, 0), // not meaningful for this room
@@ -531,7 +529,6 @@ fn create_exits(
                     room_type: if inside[[rx, ry]] {RoomType::PublicRoom} else {RoomType::PublicCourtyard},
                     group: group_index,
                     depth: 0,
-                    dead_end: false,
                     patroller: None,
                     pos_min: Coord(offset_x[[rx, ry]] + 1, offset_y[[rx, ry]] + 1),
                     pos_max: Coord(offset_x[[rx + 1, ry]], offset_y[[rx, ry + 1]]),
@@ -1678,7 +1675,7 @@ fn try_place_outfit(random: &mut Random, pos_min: Coord, pos_max: Coord, map: &m
             continue;
         }
 
-        if door_or_window_adjacent(&map.cells, pos) {
+        if bad_terrain_adjacent(&map.cells, pos) {
             continue;
         }
     
@@ -1689,10 +1686,11 @@ fn try_place_outfit(random: &mut Random, pos_min: Coord, pos_max: Coord, map: &m
     false
 }
 
-fn door_or_window_adjacent(map: &CellGrid, pos: Coord) -> bool {
+fn bad_terrain_adjacent(map: &CellGrid, pos: Coord) -> bool {
     for dir in &DIRS {
         let pos_adj = pos + *dir;
-        if map[[pos_adj.0 as usize, pos_adj.1 as usize]].cell_type >= CellType::OneWayWindowE {
+        let cell_type = map[[pos_adj.0 as usize, pos_adj.1 as usize]].cell_type;
+        if cell_type == CellType::GroundWater || cell_type == CellType::Wall0000 || cell_type >= CellType::OneWayWindowE {
             return true;
         }
     }
@@ -2043,7 +2041,6 @@ fn generate_patrol_routes(map: &mut Map, rooms: &mut [Room], adjacencies: &[Adja
     let mut room_patrol_region = vec![INVALID_REGION; rooms.len()];
 
     for i_room in 0..rooms.len() {
-        rooms[i_room].dead_end = !general_non_dead_end_room[i_room];
         if general_non_dead_end_room[i_room] {
             let inner = !outer_non_dead_end_room[i_room];
             rooms[i_room].patroller = Some(if inner {guard::GuardKind::Inner} else {guard::GuardKind::Outer});
