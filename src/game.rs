@@ -1,7 +1,7 @@
 use rand::SeedableRng;
 use std::cmp::{min, max};
 
-use crate::cell_grid::{CellGrid, CellType, ItemKind, Map, Player, Random, make_player, tile_def};
+use crate::cell_grid::{TURNS_UNDERWATER_MAX, CellGrid, CellType, ItemKind, Map, Player, Random, make_player, tile_def};
 use crate::color_preset;
 use crate::coord::Coord;
 use crate::engine;
@@ -383,9 +383,14 @@ fn advance_to_level(game: &mut Game, level: usize) {
     game.player.dir = Coord(0, -1);
     game.player.gold = 0;
     game.player.noisy = false;
+    game.player.suspicious = false;
     game.player.disguise = None;
     game.player.damaged_last_turn = false;
-    game.player.turns_remaining_underwater = 0;
+    game.player.turns_remaining_underwater = TURNS_UNDERWATER_MAX;
+
+    game.show_msgs = true;
+    game.show_help = false;
+    game.popups = new_popups();
 
     update_map_visibility(&mut game.map, game.player.pos);
 
@@ -438,6 +443,9 @@ fn move_player(game: &mut Game, mut dpos: Coord) {
 
     pre_turn(game);
 
+    let hidden_prev = game.player.hidden(&game.map);
+    let gold_prev = game.player.gold;
+
     game.player.dir = update_dir(game.player.dir, dpos);
     game.player.pos += dpos;
     game.player.gold += game.map.collect_loot_at(game.player.pos);
@@ -450,6 +458,19 @@ fn move_player(game: &mut Game, mut dpos: Coord) {
         make_noise(&mut game.map, &mut game.player, &mut game.popups, "\u{ab}creak\u{bb}");
     }
 
+    // Mark player as suspicious
+
+    if game.player.gold > gold_prev ||
+       (game.player.hidden(&game.map) && !hidden_prev) ||
+       cell_type == CellType::OneWayWindowE ||
+       cell_type == CellType::OneWayWindowW ||
+       cell_type == CellType::OneWayWindowN ||
+       cell_type == CellType::OneWayWindowS {
+        game.player.suspicious = true;
+    }
+
+    // Move the guards
+
     advance_time(game);
 
     engine::invalidate_screen();
@@ -461,6 +482,7 @@ fn try_use_in_direction(game: &mut Game, dpos: Coord) {
         pre_turn(game);
         game.player.disguise = outfit_new;
         game.player.dir = update_dir(game.player.dir, dpos);
+        game.player.suspicious = true;
         advance_time(game);
         engine::invalidate_screen();
     }
@@ -495,6 +517,7 @@ fn pre_turn(game: &mut Game) {
     game.show_msgs = true;
     game.popups.clear();
     game.player.noisy = false;
+    game.player.suspicious = false;
     game.player.damaged_last_turn = false;
 }
 
@@ -506,15 +529,13 @@ const DIRS: [Coord; 4] = [
 ];
 
 fn advance_time(game: &mut Game) {
-    /*
     if game.map.cells[[game.player.pos.0 as usize, game.player.pos.1 as usize]].cell_type == CellType::GroundWater {
         if game.player.turns_remaining_underwater > 0 {
             game.player.turns_remaining_underwater -= 1;
         }
     } else {
-        game.player.turns_remaining_underwater = 7;
+        game.player.turns_remaining_underwater = TURNS_UNDERWATER_MAX;
     }
-    */
 
     guard_act_all(&mut game.random, game.see_all, &mut game.popups, &mut game.lines, &mut game.map, &mut game.player);
 
@@ -523,6 +544,8 @@ fn advance_time(game: &mut Game) {
     if finished_level(&game.map) {
         game.finished_level = true;
     }
+
+    game.player.suspicious = false;
 }
 
 fn update_map_visibility(map: &mut Map, pos_viewer: Coord) {

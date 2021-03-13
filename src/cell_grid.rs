@@ -48,6 +48,8 @@ pub enum CellType {
     DoorEW,
 }
 
+pub const TURNS_UNDERWATER_MAX: usize = 7;
+
 pub const INVALID_REGION: usize = std::usize::MAX;
 pub const INFINITE_COST: usize = std::usize::MAX;
 
@@ -112,10 +114,9 @@ pub struct Player {
     pub health: usize,
     pub gold: usize,
     pub disguise: Option<guard::GuardKind>,
-
+    pub suspicious: bool, // did the player do something suspicious last turn?
     pub noisy: bool, // did the player make noise last turn?
     pub damaged_last_turn: bool,
-
     pub turns_remaining_underwater: usize,
 }
 
@@ -226,9 +227,10 @@ pub fn make_player(pos: Coord) -> Player {
         health: health,
         gold: 0,
         disguise: None,
+        suspicious: false,
         noisy: false,
         damaged_last_turn: false,
-        turns_remaining_underwater: 0,
+        turns_remaining_underwater: TURNS_UNDERWATER_MAX,
     }
 }
 
@@ -239,6 +241,10 @@ impl Player {
     }
 
     pub fn hidden(&self, map: &Map) -> bool {
+        if self.suspicious {
+            return false;
+        }
+
         if map.guards.iter().any(|guard| guard.mode == guard::GuardMode::ChaseVisibleTarget) {
             return false;
         }
@@ -257,6 +263,9 @@ impl Player {
     }
 
     pub fn is_appropriately_disguised(&self, map: &Map) -> bool {
+        if self.suspicious {
+            return false;
+        }
         let cell = &map.cells[[self.pos.0 as usize, self.pos.1 as usize]];
         match self.disguise {
             None => {false},

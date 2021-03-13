@@ -377,29 +377,45 @@ fn adjacent_to(&self, pos: Coord) -> bool {
 }
 
 fn sees_thief(&self, map: &Map, player: &Player) -> bool {
-    let d = player.pos - self.pos;
+    // Disguise
+    if self.mode != GuardMode::ChaseVisibleTarget &&
+       !self.adjacent_to(player.pos) &&
+       player.is_appropriately_disguised(map) {
+        return false;
+    }
+
+    // Visibility
+    if !self.can_see(map, player.pos, player.hidden(map)) {
+        return false;
+    }
+
+    true
+}
+
+pub fn can_see(&self, map: &Map, pos: Coord, hidden: bool) -> bool {
+    // Can't see behind
+    let d = pos - self.pos;
     if self.dir.dot(d) < 0 {
         return false;
     }
 
-    let thief_disguised = self.mode != GuardMode::ChaseVisibleTarget && player.is_appropriately_disguised(map);
-
-    let player_is_lit = !thief_disguised && map.cells[[player.pos.0 as usize, player.pos.1 as usize]].lit;
-
+    // Can't see beyond a cutoff distance (varies based on alertness and lighting)
     let d2 = d.length_squared();
-    if d2 >= self.sight_cutoff(player_is_lit) {
+    if d2 >= self.sight_cutoff(map.cells[[pos.0 as usize, pos.1 as usize]].lit) {
         return false;
     }
 
-    if !player.hidden(map) && line_of_sight(map, self.pos, player.pos) {
-        return true;
+    // Can't see hidden target if we are patrolling, or if target is not adjacent to us
+    if hidden && (self.mode == GuardMode::Patrol || d.0.abs() >= 2 || d.1.abs() >= 2) {
+        return false;
     }
 
-    if self.mode != GuardMode::Patrol && d.0.abs() < 2 && d.1.abs() < 2 {
-        return true;
+    // Can't see if line of sight is blocked
+    if !line_of_sight(map, self.pos, pos) {
+        return false;
     }
 
-    return false;
+    true
 }
 
 fn cutoff_lit(&self) -> i32 {
