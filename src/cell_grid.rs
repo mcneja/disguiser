@@ -2,7 +2,7 @@ use crate::color_preset;
 use crate::coord::Coord;
 use crate::guard;
 use multiarray::Array2D;
-use rand::Rng;
+use rand::prelude::SliceRandom;
 use std::cmp::min;
 use std::cmp::Ordering;
 use std::collections::BinaryHeap;
@@ -491,34 +491,33 @@ pub fn is_outfit_at(&self, pos: Coord) -> bool {
 }
 
 pub fn random_neighbor_region(&self, random: &mut Random, region: usize, region_exclude: usize, guard_kind: guard::GuardKind) -> usize {
-    let mut neighbors: Vec<usize> = Vec::with_capacity(8);
+    let neighboring_region = |(region0, region1): &(usize, usize)| {
+        if *region0 == region {
+            Some(*region1)
+        } else if *region1 == region {
+            Some(*region0)
+        } else {
+            None
+        }
+    };
 
-    for (region0, region1) in &self.patrol_routes {
-        if *region0 != region && *region1 != region {
-            continue;
+    let all_neighbors = self.patrol_routes.iter().filter_map(neighboring_region).filter(|&region| region != region_exclude);
+    let (inner_neighbors, outer_neighbors): (Vec<usize>, Vec<usize>) = all_neighbors.partition(|&region| self.patrol_regions[region].inner);
+
+    let neighbors = match guard_kind {
+        guard::GuardKind::Outer => {
+            outer_neighbors
+        },
+        guard::GuardKind::Inner => {
+            if inner_neighbors.is_empty() {outer_neighbors} else {inner_neighbors}
         }
-        let region_other = if *region0 == region {*region1} else {*region0};
-        if region_other == region_exclude {
-            continue;
-        }
-        if self.patrol_regions[region_other].inner {
-            match guard_kind {
-                guard::GuardKind::Inner => {
-                    neighbors.push(region_other);
-                },
-                guard::GuardKind::Outer => {
-                    continue;
-                },
-            }
-        }
-        neighbors.push(region_other);
+    };
+
+    if let Some(region) = neighbors.choose(random) {
+        return *region;
     }
 
-    if neighbors.is_empty() {
-        return region;
-    }
-
-    return neighbors[random.gen_range(0..neighbors.len())];
+    region
 }
 
 fn guard_cell_cost(&self, x: usize, y: usize) -> usize {
