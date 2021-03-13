@@ -1811,28 +1811,33 @@ fn place_guards_by_type(random: &mut Random, level: usize, rooms: &[Room], map: 
             (num_rooms * min(level + 18, 40) + 99) / 100
         };
 
+    let inner = guard_kind == guard::GuardKind::Inner;
+
     while num_guards > 0 {
-        if let Some(pos) = generate_initial_guard_pos(random, &map) {
+        if let Some(pos) = generate_initial_guard_pos(random, &map, inner) {
             place_guard(random, map, pos, guard_kind);
             num_guards -= 1;
         }
     }
 }
 
-fn generate_initial_guard_pos(random: &mut Random, map: &Map) -> Option<Coord> {
+fn generate_initial_guard_pos(random: &mut Random, map: &Map, inner: bool) -> Option<Coord> {
     let size_x = map.cells.extents()[0] as i32;
     let size_y = map.cells.extents()[1] as i32;
     for _ in 0..1000 {
         let pos = Coord(random.gen_range(0..size_x), random.gen_range(0..size_y));
+
+        let cell = &map.cells[[pos.0 as usize, pos.1 as usize]];
+        if cell.inner != inner {
+            continue;
+        }
 
         let dpos = map.pos_start - pos;
         if dpos.length_squared() < 64 {
             continue;
         }
 
-        let cell_type = map.cells[[pos.0 as usize, pos.1 as usize]].cell_type;
-
-        if cell_type != CellType::GroundWood && cell_type != CellType::GroundMarble {
+        if cell.cell_type != CellType::GroundWood && cell.cell_type != CellType::GroundMarble {
             continue;
         }
 

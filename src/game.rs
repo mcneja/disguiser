@@ -67,6 +67,8 @@ fn restart_game(game: &mut Game) {
     game.popups = new_popups();
 
     update_map_visibility(&mut game.map, game.player.pos);
+
+    engine::invalidate_screen();
 }
 
 fn finished_level(map: &Map) -> bool {
@@ -118,8 +120,26 @@ pub fn on_draw(game: &Game, screen_size_x: i32, screen_size_y: i32) {
         }
     }
 
+    // Draw the inner region
+
+    /*
+    if game.see_all {
+        let color = 0x60ffff00;
+        for x in 0..map_size_x {
+            for y in 0..map_size_y {
+                let cell = &map.cells[[x, y]];
+                if cell.inner {
+                    let pos = view_offset + Coord(x as i32, y as i32) * TILE_SIZE;
+                    engine::draw_rect(pos.0, pos.1, TILE_SIZE, TILE_SIZE, color);
+                }
+            }
+        }
+    }
+    */
+
     // Draw all the patrol regions
 
+    /*
     if game.see_all {
         for region in &map.patrol_regions {
             let color = if region.inner {0x60ffff00} else {0x60ff00ff};
@@ -129,6 +149,7 @@ pub fn on_draw(game: &Game, screen_size_x: i32, screen_size_y: i32) {
             engine::draw_rect(pos.0, pos.1, size.0, size.1, color);
         }
     }
+    */
 
     // Items
 
@@ -353,8 +374,8 @@ fn color_for_item(kind: ItemKind) -> u32 {
     }
 }
 
-fn advance_to_next_level(game: &mut Game) {
-    game.level += 1;
+fn advance_to_level(game: &mut Game, level: usize) {
+    game.level = level;
     game.map = random_map::generate_map(&mut game.random, game.level);
     game.finished_level = false;
 
@@ -385,7 +406,7 @@ fn move_player(game: &mut Game, mut dpos: Coord) {
     let pos_new = player.pos + dpos;
 
     if !on_level(&game.map.cells, pos_new) && finished_level(&game.map) {
-        advance_to_next_level(game);
+        advance_to_level(game, game.level + 1);
         return;
     }
 
@@ -600,14 +621,24 @@ fn on_key_down_game_mode(game: &mut Game, key: i32, ctrl_key_down: bool, shift_k
                 game.finished_level = finished_level(&game.map);
                 engine::invalidate_screen();
             },
+            engine::KEY_M => {
+                advance_to_level(game, game.level);
+            }
             engine::KEY_R => {
                 restart_game(game);
-                engine::invalidate_screen();
             },
             engine::KEY_S => {
                 game.map.mark_all_seen();
                 game.finished_level = finished_level(&game.map);
                 engine::invalidate_screen();
+            },
+            engine::KEY_PERIOD => {
+                advance_to_level(game, game.level + 1);
+            },
+            engine::KEY_COMMA => {
+                if game.level > 0 {
+                    advance_to_level(game, game.level - 1);
+                }
             },
             _ => {}
         }
