@@ -764,7 +764,7 @@ fn draw_bottom_status_bar(screen_size_x: i32, _screen_size_y: i32, game: &Game) 
         x = puts_proportional(x, y_base, "Air", AIR_COLOR);
         x += 8;
 
-        const TILE_AIR: u32 = 214;
+        const TILE_AIR: u32 = 220;
         const AIR_COLOR: u32 = 0xfffefe54;
         for _ in 0..game.player.turns_remaining_underwater - 1 {
             draw_tile_by_index(TILE_AIR, x, y_base + 5, AIR_COLOR);
