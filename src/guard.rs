@@ -379,8 +379,7 @@ fn adjacent_to(&self, pos: Coord) -> bool {
 fn sees_thief(&self, map: &Map, player: &Player) -> bool {
     // Disguise
     if self.mode != GuardMode::ChaseVisibleTarget &&
-       !self.adjacent_to(player.pos) &&
-       player.is_appropriately_disguised(map) {
+    (player.pos - self.pos).length_squared() > player.dist_squared_disguise_cutoff(map, self.kind) {
         return false;
     }
 

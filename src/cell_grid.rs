@@ -262,6 +262,26 @@ impl Player {
         false
     }
 
+    pub fn dist_squared_disguise_cutoff(&self, map: &Map, guard_kind: guard::GuardKind) -> i32 {
+        if self.suspicious {
+            return i32::MAX;
+        }
+
+        let cell = &map.cells[[self.pos.0 as usize, self.pos.1 as usize]];
+
+        let disguise_allowed_in_zone = if cell.inner {self.disguise == Some(guard::GuardKind::Inner)} else {self.disguise.is_some()};
+        if !disguise_allowed_in_zone {
+            return i32::MAX;
+        }
+
+        let disguise_matches_viewer = self.disguise == Some(guard_kind);
+        if !disguise_matches_viewer {
+            return 10;
+        }
+
+        2
+    }
+
     pub fn is_appropriately_disguised(&self, map: &Map) -> bool {
         if self.suspicious {
             return false;
