@@ -856,7 +856,7 @@ Health is shown on the status bar in the lower left.
 
 A 2021 Seven-day Roguelike Challenge game by James McNeill
 
-Special Thanks: Mendi Carroll
+Special Thanks: Mendi Carroll, Mike Gaffney
 
 mcneja.github.io
 playtechs.blogspot.com",
