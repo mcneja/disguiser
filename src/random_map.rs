@@ -2036,11 +2036,11 @@ fn generate_patrol_routes(map: &mut Map, rooms: &mut [Room], adjacencies: &[Adja
     // Measure room distances from the public and private rooms
 
     let outer_room_indices: Vec<usize> = rooms.iter().enumerate().filter(|(_, room)|
-        room.room_type == RoomType::PublicRoom || room.room_type == RoomType::PublicCourtyard).map(|(i, _)| i).collect();
+        room.room_type == RoomType::PublicRoom).map(|(i, _)| i).collect();
     let dist_to_outer_room = compute_room_distances(rooms, adjacencies, &outer_room_indices);
 
     let inner_room_indices: Vec<usize> = rooms.iter().enumerate().filter(|(_, room)|
-        room.room_type == RoomType::PrivateRoom || room.room_type == RoomType::PrivateCourtyard).map(|(i, _)| i).collect();
+        room.room_type == RoomType::PrivateRoom).map(|(i, _)| i).collect();
     let dist_to_inner_room = compute_room_distances(rooms, adjacencies, &inner_room_indices);
 
     let non_dead_end_room = non_dead_end_rooms(rooms, adjacencies, |room| room.room_type != RoomType::Exterior);
