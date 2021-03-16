@@ -2033,18 +2033,39 @@ fn non_dead_end_rooms<F>(rooms: &[Room], adjacencies: &[Adjacency], accept_room:
 }
 
 fn generate_patrol_routes(map: &mut Map, rooms: &mut [Room], adjacencies: &[Adjacency]) {
-    let general_non_dead_end_room = non_dead_end_rooms(rooms, adjacencies, |room| room.room_type != RoomType::Exterior);
-    let outer_non_dead_end_room = non_dead_end_rooms(rooms, adjacencies, |room| room.room_type != RoomType::Exterior && room.room_type != RoomType::PrivateRoom && room.room_type != RoomType::PrivateCourtyard);
+    // Measure room distances from the public and private rooms
+
+    let outer_room_indices: Vec<usize> = rooms.iter().enumerate().filter(|(_, room)|
+        room.room_type == RoomType::PublicRoom || room.room_type == RoomType::PublicCourtyard).map(|(i, _)| i).collect();
+    let dist_to_outer_room = compute_room_distances(rooms, adjacencies, &outer_room_indices);
+
+    let inner_room_indices: Vec<usize> = rooms.iter().enumerate().filter(|(_, room)|
+        room.room_type == RoomType::PrivateRoom || room.room_type == RoomType::PrivateCourtyard).map(|(i, _)| i).collect();
+    let dist_to_inner_room = compute_room_distances(rooms, adjacencies, &inner_room_indices);
+
+    let non_dead_end_room = non_dead_end_rooms(rooms, adjacencies, |room| room.room_type != RoomType::Exterior);
 
     // Generate patrol regions for included rooms.
 
     let mut room_patrol_region = vec![INVALID_REGION; rooms.len()];
 
     for i_room in 0..rooms.len() {
-        if general_non_dead_end_room[i_room] {
-            let inner = !outer_non_dead_end_room[i_room];
-            rooms[i_room].patroller = Some(if inner {guard::GuardKind::Inner} else {guard::GuardKind::Outer});
-            room_patrol_region[i_room] = add_patrol_region(map, rooms[i_room].pos_min, rooms[i_room].pos_max, inner);
+        if non_dead_end_room[i_room] {
+            let room_type = rooms[i_room].room_type;
+            rooms[i_room].patroller = match room_type {
+                RoomType::Exterior => None,
+                RoomType::PublicCourtyard => Some(guard::GuardKind::Outer),
+                RoomType::PublicRoom => Some(guard::GuardKind::Outer),
+                RoomType::PrivateCourtyard => Some(guard::GuardKind::Inner),
+                RoomType::PrivateRoom => Some(guard::GuardKind::Inner),
+            };
+            room_patrol_region[i_room] = add_patrol_region(
+                map,
+                rooms[i_room].pos_min,
+                rooms[i_room].pos_max,
+                dist_to_outer_room[i_room],
+                dist_to_inner_room[i_room]
+            );
         }
     }
 
@@ -2066,7 +2087,7 @@ fn generate_patrol_routes(map: &mut Map, rooms: &mut [Room], adjacencies: &[Adja
     }
 }
 
-fn add_patrol_region(map: &mut Map, pos_min: Coord, pos_max: Coord, inner: bool) -> usize {
+fn add_patrol_region(map: &mut Map, pos_min: Coord, pos_max: Coord, dist_to_outer_room: usize, dist_to_inner_room: usize) -> usize {
     let i_patrol_region = map.patrol_regions.len();
 
     map.patrol_regions.push(
@@ -2075,7 +2096,8 @@ fn add_patrol_region(map: &mut Map, pos_min: Coord, pos_max: Coord, inner: bool)
                 pos_min,
                 pos_max,
             },
-            inner,
+            dist_from_outer: dist_to_outer_room,
+            dist_from_inner: dist_to_inner_room,
         }
     );
 

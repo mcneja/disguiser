@@ -76,7 +76,8 @@ pub struct Rect {
 
 pub struct PatrolRegion {
     pub rect: Rect,
-    pub inner: bool,
+    pub dist_from_outer: usize,
+    pub dist_from_inner: usize,
 }
 
 pub struct Map {
@@ -262,36 +263,25 @@ impl Player {
         false
     }
 
-    pub fn dist_squared_disguise_cutoff(&self, map: &Map, guard_kind: guard::GuardKind) -> i32 {
+    pub fn dist_squared_disguise_cutoff(&self, guard_kind: guard::GuardKind) -> i32 {
         if self.suspicious {
             return i32::MAX;
         }
 
-        let cell = &map.cells[[self.pos.0 as usize, self.pos.1 as usize]];
-
-        let disguise_allowed_in_zone = if cell.inner {self.disguise == Some(guard::GuardKind::Inner)} else {self.disguise.is_some()};
-        if !disguise_allowed_in_zone {
+        if self.disguise.is_none() {
             return i32::MAX;
         }
 
         let disguise_matches_viewer = self.disguise == Some(guard_kind);
-        if !disguise_matches_viewer {
+        if disguise_matches_viewer {
             return 10;
         }
 
-        2
+        0
     }
 
-    pub fn is_appropriately_disguised(&self, map: &Map) -> bool {
-        if self.suspicious {
-            return false;
-        }
-        let cell = &map.cells[[self.pos.0 as usize, self.pos.1 as usize]];
-        match self.disguise {
-            None => {false},
-            Some(guard::GuardKind::Outer) => {!cell.inner},
-            Some(guard::GuardKind::Inner) => {true},
-        }
+    pub fn is_appropriately_disguised(&self) -> bool {
+        self.disguise.is_some() && !self.suspicious
     }
 }
 
@@ -540,17 +530,22 @@ pub fn random_neighbor_region(&self, random: &mut Random, region: usize, region_
         }
     };
 
-    let all_neighbors = self.patrol_routes.iter().filter_map(neighboring_region).filter(|&region| region != region_exclude);
-    let (inner_neighbors, outer_neighbors): (Vec<usize>, Vec<usize>) = all_neighbors.partition(|&region| self.patrol_regions[region].inner);
+    let neighbor_dists: Vec<(usize, usize)> = self.patrol_routes
+        .iter()
+        .filter_map(neighboring_region)
+        .filter(|&region| region != region_exclude)
+        .map(|region| {
+            let dist = match guard_kind {
+                guard::GuardKind::Outer => self.patrol_regions[region].dist_from_outer,
+                guard::GuardKind::Inner => self.patrol_regions[region].dist_from_inner,
+            };
+            (region, dist)
+        })
+        .collect();
 
-    let neighbors = match guard_kind {
-        guard::GuardKind::Outer => {
-            outer_neighbors
-        },
-        guard::GuardKind::Inner => {
-            if inner_neighbors.is_empty() {outer_neighbors} else {inner_neighbors}
-        }
-    };
+    let dist_min: usize = neighbor_dists.iter().fold(usize::MAX, |dist_min, (_, dist)| min(dist_min, *dist));
+
+    let neighbors: Vec<usize> = neighbor_dists.iter().filter(|(_, dist)| *dist <= dist_min).map(|(region_index, _)| *region_index).collect();
 
     if let Some(region) = neighbors.choose(random) {
         return *region;
@@ -582,7 +577,7 @@ pub fn guard_move_cost(&self, pos_old: Coord, pos_new: Coord) -> usize {
     cost
 }
 
-pub fn closest_region(&self, pos: Coord, outer_only: bool) -> usize {
+pub fn closest_region(&self, pos: Coord) -> usize {
 
     #[derive(Copy, Clone, Eq, PartialEq)]
     struct State {
@@ -614,7 +609,7 @@ pub fn closest_region(&self, pos: Coord, outer_only: bool) -> usize {
         let p = [pos.0 as usize, pos.1 as usize];
 
         let region_index = self.cells[p].region;
-        if region_index != INVALID_REGION && !(outer_only && self.patrol_regions[region_index].inner) {
+        if region_index != INVALID_REGION {
             return region_index;
         }
 

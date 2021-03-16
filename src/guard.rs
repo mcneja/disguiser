@@ -284,7 +284,7 @@ fn act(&mut self, random: &mut Random, see_all: bool, popups: &mut Popups, lines
     // Update state based on target visibility from new position
 
     if self.sees_thief(map, player) {
-        let disguised = player.is_appropriately_disguised(map);
+        let disguised = player.is_appropriately_disguised();
         if self.mode == GuardMode::Patrol && (disguised || !self.adjacent_to(player.pos)) {
             self.mode = if disguised {GuardMode::LookAtDisguised} else {GuardMode::Look};
             self.mode_timeout = random.gen_range(3..6);
@@ -379,7 +379,7 @@ fn adjacent_to(&self, pos: Coord) -> bool {
 fn sees_thief(&self, map: &Map, player: &Player) -> bool {
     // Disguise
     if self.mode != GuardMode::ChaseVisibleTarget &&
-    (player.pos - self.pos).length_squared() > player.dist_squared_disguise_cutoff(map, self.kind) {
+    (player.pos - self.pos).length_squared() > player.dist_squared_disguise_cutoff(self.kind) {
         return false;
     }
 
@@ -438,7 +438,7 @@ fn patrol_step(&mut self, map: &Map, player: &mut Player, random: &mut Random) {
         self.region_goal = map.random_neighbor_region(random, self.region_goal, region_prev, self.kind);
     }
 
-    if bumped_thief && !player.is_appropriately_disguised(map) {
+    if bumped_thief && !player.is_appropriately_disguised() {
         self.mode = GuardMode::ChaseVisibleTarget;
         self.goal = player.pos;
         self.dir = update_dir(self.dir, self.goal - self.pos);
@@ -502,10 +502,8 @@ pub fn setup_goal_region(&mut self, random: &mut Random, map: &Map) {
         return;
     }
 
-    let outer_only = self.kind == GuardKind::Outer;
-
-    if region_cur == INVALID_REGION || (outer_only && map.patrol_regions[region_cur].inner) {
-        self.region_goal = map.closest_region(self.pos, outer_only);
+    if region_cur == INVALID_REGION {
+        self.region_goal = map.closest_region(self.pos);
     } else {
         self.region_goal = map.random_neighbor_region(random, region_cur, self.region_prev, self.kind);
         self.region_prev = region_cur;

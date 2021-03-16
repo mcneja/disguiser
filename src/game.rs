@@ -137,16 +137,18 @@ pub fn on_draw(game: &Game, screen_size_x: i32, screen_size_y: i32) {
     }
     */
 
-    // Draw all the patrol regions
+    // Draw room distances from the inner rooms
 
     /*
     if game.see_all {
         for region in &map.patrol_regions {
-            let color = if region.inner {0x60ffff00} else {0x60ff00ff};
-            let rect = &region.rect;
-            let pos = view_offset + rect.pos_min * TILE_SIZE;
-            let size = (rect.pos_max - rect.pos_min) * TILE_SIZE;
-            engine::draw_rect(pos.0, pos.1, size.0, size.1, color);
+            let d = region.dist_from_inner;
+            let digit = (d % 10) + 48;
+            for x in region.rect.pos_min.0 .. region.rect.pos_max.0 {
+                for y in region.rect.pos_min.1 .. region.rect.pos_max.1 {
+                    put_tile(digit as u32, x as i32, y as i32, 0x60ffff00);
+                }
+            }
         }
     }
     */
